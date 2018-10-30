@@ -1,7 +1,8 @@
 from bs4 import BeautifulSoup
-from LandmarksCollector.SampleReader import is_valid, get_brief_one
+from LandmarksCollector.sampleReader import is_valid, get_brief_one
 import re
 from LandmarksCollector import settings
+import logging
 
 def exist_loginform(html):
     soup = BeautifulSoup(html, "lxml")
@@ -57,8 +58,6 @@ def identification(in_file_path, out_file_path, index):
             except Exception as e:
                 continue
             f_out.write(pageInfo["html"])
-            f_out.write('<a href="%s" class="host">%s</a>' % (pageInfo["host"], pageInfo["host"]))
-            f_out.write('<a href="%s" class="path">%s</a>' % (pageInfo["url"], pageInfo["url"]))
             f_out.close()
             logging.warning("-----------------ind: %d identification: %s--------------------" % (ind, True))
         else:

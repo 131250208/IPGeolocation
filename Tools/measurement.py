@@ -8,39 +8,10 @@ from selenium.webdriver.common.by import By
 import time
 from Tools import settings
 import json
+import datetime
+import math
 import pyprind
 
-# def traceroute_query(location, hostname):
-#     url = "https://tools.keycdn.com/traceroute"
-#     headers = rt.get_random_headers()
-#     # headers["origin"] = "https://tools.keycdn.com"
-#     # headers["referer"] = "www.google.com"
-#     headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"
-#     # headers["cookie"] = "_ga=GA1.2.50660787.1539681526; PHPSESSID=n1b9ha7vj6clfbuv10u27dhmo9; _gid=GA1.2.1704225776.1540180890; keycdn=kd58cb91ua9nbb9ktevbtirhmp5lodte"
-#     # headers["accept-encoding"] = "gzip, deflate, br"
-#     # headers["accept-language"] = "zh-CN,zh;q=0.9,en;q=0.8"
-#     headers["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-#     # headers["content-length"] = "101"
-#     headers["x-requested-with"] = "XMLHttpRequest"
-#     proxies = rt.get_proxies_abroad()
-#
-#     session = requests.session()
-#     session.get("https://www.keycdn.com")
-#     session.get("https://tools.keycdn.com", proxies=proxies,)
-#     res = session.get(url, headers=headers, proxies=proxies, timeout=10)
-#     search_group = re.search("token=([0-9a-z]+)", res.text)
-#     token = None
-#     if search_group:
-#         token = search_group.group(1)
-#
-#     api = "https://tools.keycdn.com/trace-query.php"
-#     data = {
-#         "location": location,
-#         "hostname": hostname,
-#         "token": token,
-#     }
-#     res = session.post(api, data=data, proxies=proxies, timeout=10)
-#     return res.text
 def init_chrome():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('--proxy-server=%s' % settings.PROXY_ABROAD)
@@ -142,11 +113,11 @@ def trace_route_query(chrome, hostname):
     return json.dumps(res_dict)
 
 
-if __name__ == "__main__":
+def measure_by_keycdn():
     chrome = init_chrome()
     chrome.get("https://tools.keycdn.com/traceroute")
 
-    json_landmarks = json.load(open("../sources/landmarks_planet_lab_us.json", "r"))
+    json_landmarks = json.load(open("../resources/landmarks_planet_lab_us.json", "r"))
     for lm in pyprind.prog_bar(json_landmarks):
         ip = lm["ip"]
         t1 = time.time()
@@ -156,5 +127,113 @@ if __name__ == "__main__":
         t2 = time.time()
         print(t2 - t1)
 
-    json.dump(json_landmarks, open("../sources/landmarks_planetlab_us_measured.json", "w"))
+    json.dump(json_landmarks, open("../resources/landmarks_planetlab_us_measured.json", "w"))
+
+# -------------------------------------------------------------------------------------------------------------------------------------------
+
+
+def chunks(arr, n):
+    '''
+    split arr into chunks whose size is n
+    :param arr:
+    :param n:
+    :return:
+    '''
+    return [arr[i:i + n] for i in range(0, len(arr), n)]
+
+
+def chunks_avg(arr, m):
+    '''
+    split the arr into m chunks
+    :param arr:
+    :param m:
+    :return:
+    '''
+    n = int(math.ceil(len(arr) / float(m)))
+    return [arr[i:i + n] for i in range(0, len(arr), n)]
+
+
+def delete_measurement(measurement_id):
+    api = "https://atlas.ripe.net:443/api/v2/measurements/%s?key=%s" % (measurement_id, settings.KEY_RIPE)
+    res = requests.delete(api)
+    print(res.text)
+
+
+def delete_measurement_by_tag(tag):
+    api = "https://atlas.ripe.net:443/api/v2/measurements/my-tags/%s/stop?key=%s" % (tag, settings.KEY_RIPE)
+    res = requests.post(api)
+    print(res.text)
+
+
+def measure_by_ripe_hugenum(list_target, list_probes, start, days, interval, tag):
+    days2stamp = 86400.0 * days
+    measurement_chunks = chunks(list_target, 80)
+    size = len(measurement_chunks)
+
+    for ind, mc in enumerate(measurement_chunks):
+        interval_ = interval + 0.0
+        start_time = start + math.ceil(interval_ / size) * ind
+        stop_time = start_time + days2stamp
+        res = measure_by_ripe(mc, list_probes, start_time, stop_time, interval, tag)
+        print(res.status_code)
+        print(res.text)
+
+
+def measure_by_ripe(list_target, list_probes, start_time, stop_time, interval, tag):
+    '''
+    start measurements on targets
+    :param list_target:
+    :return:
+    '''
+    list_measurement = []
+    for t in list_target:
+        list_measurement.append({
+            "is_public ": True,
+            "description": "Traceroute measurement to %s" % t,
+            "af": 4,
+            "type": "traceroute",
+            "packets": 4,
+            "first_hop": 1,
+            "max_hops": 32,
+            "paris": 16,
+            "size": 48,
+            "protocol": "ICMP",
+            "duplicate_timeout": 4000,
+            "hop_by_hop_option_size": 0,
+            "destination_option_size": 0,
+            "dont_fragment": False,
+            "target": t,
+            "tags": tag,
+            "interval": interval,
+        })
+    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % settings.KEY_RIPE
+    data = {
+        "bill_to": "wychengpublic@163.com",
+        "is_oneoff": False,
+        "start_time": start_time,
+        "stop_time": stop_time,
+        # "skip_dns_check": True,
+        "definitions": list_measurement,
+        "probes": [{
+            "requested": len(list_probes),
+            "type": "probes",
+            "value": ",".join(list_probes),
+        }]
+    }
+
+    res = requests.post(api, data=json.dumps(data), headers=rt.get_random_headers())
+    return res
+
+if __name__ == "__main__":
+    delete_measurement_by_tag("ip-geolocation-train-dataset")
+    # import pytz
+    # tz = pytz.timezone('America/New_York')
+    # start_time = datetime.datetime.now(tz).timestamp() + 120
+    #
+    # map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    # list_target = [k for k in map_ip_coordination.keys() if k is not None]
+    # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
+    # # start_time = datetime.datetime(2018, 10, 28, 7, 50, 0).timestamp()
+    # measure_by_ripe_hugenum(list_target, probes, start_time, 1, 21600, ["ip-geolocation-train-dataset",])
+
 

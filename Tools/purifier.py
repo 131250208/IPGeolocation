@@ -28,8 +28,19 @@ def get_pure_text_fr_html(html):
     return text
 
 
-def get_pure_body_fr_html(html):
-    soup = BeautifulSoup(html, "lxml")
+def get_pure_soup_fr_html(html, ignore_n=False):
+    '''
+    soup that without script, style and redundant blanks
+    :param html:
+    :param ignore_n: to remove all blanks or not
+    :return: soup
+    '''
+    html = re.sub("<!-+.*-+>", "", html)
+    if ignore_n:
+        html = re.sub("[\n\r]+", " ", html)
+        html = re.sub("[\t\s ]+", " ", html)
+
+    soup = BeautifulSoup(html, "html5lib")
 
     # head = soup.select_one("head")
     # if head is not None:
@@ -42,12 +53,13 @@ def get_pure_body_fr_html(html):
     style = soup.select("style")
     for st in style:
         st.decompose()
+    return soup
 
-    html = soup.prettify()
-    html = re.sub("[\n\r]+", " ", html)
-    html = re.sub("[\t\s ]+", " ", html)
-    return html
 
 def prettify_text(text):
     return re.sub("[\r\t\n\s ]+", " ", text)
+
+if __name__ == "__main__":
+    html = re.sub("<!-+.*-+>", "", "<!------->")
+    print(html)
 

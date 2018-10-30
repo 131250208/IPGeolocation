@@ -2,6 +2,10 @@ import requests
 from Tools import settings
 import random
 import time
+import re
+from Tools import mylogger
+import sys
+logger = mylogger.Logger("../Log/request_tools.py.log")
 
 user_agents = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0",
@@ -27,8 +31,9 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
 ]
 headers = {
-    "accept": "*/*",
+    "accept": "*/*;q=0.8",
     "accept-encoding": "gzip, deflate, br",
+    "Content-Type": "*/*",
 }
 
 
@@ -49,3 +54,87 @@ def get_random_headers():
     random.seed(time.time())
     headers["user-agent"] = random.choice(user_agents)
     return headers
+
+
+def recover_url(url_this, path):
+    '''
+    recover uncompleted path, like: ../index.html, ./index.html, /index.html, index/html, //webmedia.ku.edu/templates/2012/images/ku_sig_logo.png
+    :param url_this:
+    :param path:
+    :return:
+    '''
+    url_this = url_this[:-1] if url_this[-1] == "/" else url_this
+
+    url_split = url_this.split("//")
+    path_this = url_split[1]
+    host = re.sub("/.*", "", path_this)
+    host = url_split[0] + "//" + host
+
+    pattern_backup = re.compile("\.\./")
+    pattern_current = re.compile("\./")
+    count_backup = len(pattern_backup.findall(path))
+    if "http" in path:
+        return path
+
+    if count_backup > 0:
+        components_host = url_this.split("/")
+        path = re.sub("\.\./", "", path)
+        return "/".join(components_host[:-(count_backup + 1)]) + "/" + path
+
+    if len(pattern_current.findall(path)) > 0:
+        path = re.sub("\./", "", path)
+        return url_this + "/" + path
+
+    if path[:2] == "//":
+        return url_split[0] + path
+    else:
+        # path = re.sub("\./", "", path)
+        if path[0] != "/":
+            path = "/" + path
+        return host + path
+
+
+def try_best_request_post(url, data, maxtime, tag, type):
+    error_count = 0
+    while True:
+        try:
+            proxies = None
+            if type == "abroad":
+                proxies = get_proxies_abroad()
+            elif type == "spider":
+                proxies = get_proxies_spider()
+            res = requests.post(url, data=data, headers=get_random_headers(), proxies=proxies, timeout=10)
+            break
+        except Exception as e:
+            logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
+            logger.war(e)
+            error_count += 1
+            if error_count > maxtime:
+                logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))
+                return None
+    return res
+
+
+def try_best_request_get(url, maxtime, tag, type):
+    error_count = 0
+    while True:
+        try:
+            proxies = None
+            if type == "abroad":
+                proxies = get_proxies_abroad()
+            elif type == "spider":
+                proxies = get_proxies_spider()
+            res = requests.get(url, headers=get_random_headers(), proxies=proxies, timeout=10)
+            break
+        except Exception as e:
+            logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
+            logger.war(e)
+            time.sleep(3)
+            error_count += 1
+            if error_count > maxtime:
+                logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))
+                return None
+    return res
+
+if __name__ == "__main__":
+    print(recover_url("http://www.cs.ccu.edu.tw/jjk/mll/jk.html", "home/index.html"))

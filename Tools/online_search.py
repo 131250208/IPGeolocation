@@ -9,8 +9,6 @@ import re
 from Tools import purifier, geolocation
 import logging
 from Tools import requests_tools as rt
-import datx
-from LandmarksCollector import settings
 
 def random_sleep():
     random.seed(time.time())
@@ -40,10 +38,6 @@ def google_search(queryStr):
         return ""
     return html
 
-
-def whois(ip):
-    c = datx.City(settings.IP_DATABASE_PATH)
-    return c.find(ip)
 
 def extract_search_results(html):
     soup = BeautifulSoup(html, "lxml")
@@ -91,3 +85,4 @@ if __name__ == '__main__':
     # print(google_web_search("suXus X-central Remote Monitoring & Management Solution"))
     # whois("143.248.48.110")
     print(geolocation.google_map_coordinate("徐州"))
+

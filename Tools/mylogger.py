@@ -1,7 +1,10 @@
 import logging
 
+
 class Logger:
     def __init__(self, path, clevel=logging.DEBUG, Flevel=logging.DEBUG):
+        self.path = path
+
         self.logger = logging.getLogger(path)
         self.logger.setLevel(logging.DEBUG)
         fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S')
@@ -17,19 +20,19 @@ class Logger:
         self.logger.addHandler(fh)
 
     def debug(self, message):
-        self.logger.debug(message)
+        self.logger.debug("->%s; info: %s" % (self.path, message))
 
     def info(self, message):
-        self.logger.info(message)
+        self.logger.info("->%s; info: %s" % (self.path, message))
 
     def war(self, message):
-        self.logger.warn(message)
+        self.logger.warning("->%s; info: %s" % (self.path, message))
 
     def error(self, message):
-        self.logger.error(message)
+        self.logger.error("->%s; info: %s" % (self.path, message))
 
     def cri(self, message):
-        self.logger.critical(message)
+        self.logger.critical("->%s; info: %s" % (self.path, message))
 
 
 if __name__ == '__main__':

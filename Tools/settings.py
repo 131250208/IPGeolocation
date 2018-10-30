@@ -7,6 +7,15 @@ TIMEOUT = 20
 
 # geolocation
 GOOGLE_API_KEY = "AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk"
+IP_INFO_IPIP_PATH = "../resources/ip_gb_en.datx"
 
-# measurement
+# measurement by keycdn
 DRIVER_WAITING_TIME = 60
+
+# measurement by Ripe
+KEY_RIPE = "4a2268a2-17ad-42ea-9f82-16a92d0efeb5"
+
+# ocr tool
+BAIDU_API_KEY = "24.41d0976869d7ae95714d188117a8b17c.2592000.1542006180.282335-14421471"
+BAIDU_API_OCR_GENERAL = "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic"
+BAIDU_API_OCR_ACCURATE = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
