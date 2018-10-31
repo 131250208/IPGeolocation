@@ -182,15 +182,23 @@ def geodistance(lng1, lat1, lng2, lat2):
     dis = 2 * asin(sqrt(a)) * 6371 * 1000
     return dis
 
+
+def dis_btw_2p(query1, query2):
+    r1 = google_map_coordinate(query1)
+    r2 = google_map_coordinate(query2)
+
+    if len(r1) > 0 and len(r2) > 0:
+        dis = geodistance(r1[0]["lng"], r1[0]["lat"], r2[0]["lng"], r2[0]["lat"])
+    else:
+        dis = -1
+    print("place1: %s, place2: %s" % (r1, r2))
+    return dis
+
 if __name__ == "__main__":
-    # Mercer County
-    # New Jersey
-    res = google_map_coordinate("Palo Alto Research Center")
-    print(res)
-    # dis = geodistance(res[0]["lng"], res[0]["lat"], -117.39, 33.95)
-    # print(dis)
-    res = google_map_coordinate("Palo Alto Research Center Incorporated Santa Clara County") # Research Center Incorporated,  - PARC
-    print(res)
+    # Mercer County NEC LABORATORIES AMERICA, INC. NEC Relentless passion for innovation, Mercer County
+    print(dis_btw_2p("NEC LABORATORIES AMERICA NEC , Mercer County",
+                     "NEC Laboratories Mercer County"))
+    # print(dis_btw_2p("Palo Alto Research Center Incorporated Santa Clara County", "Palo Alto Research Center Santa Clara County"))
     pass
 
     # count = 0

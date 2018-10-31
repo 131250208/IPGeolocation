@@ -137,4 +137,5 @@ def try_best_request_get(url, maxtime, tag, type):
     return res
 
 if __name__ == "__main__":
-    print(recover_url("http://www.cs.ccu.edu.tw/jjk/mll/jk.html", "home/index.html"))
+    # print(recover_url("http://www.cs.ccu.edu.tw/jjk/mll/jk.html", "home/index.html"))
+    pass

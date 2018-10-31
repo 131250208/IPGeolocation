@@ -31,22 +31,6 @@ def tokenize(text):
     return pattern.findall(text)
 
 
-def all_style(exp):
-    words = exp.split(" ")
-
-    list_st0 = []
-    list_st1 = []
-    list_st2 = []
-    for word in words:
-        word = word.lower()
-        list_st0.append(word)
-        st1 = word[0].upper() + word[1:]
-        list_st1.append(st1)
-        st2 = word.upper()
-        list_st2.append(st2)
-    return " ".join(list_st0), " ".join(list_st1), " ".join(list_st2)
-
-
 def extract_addr(html):
     if "address" not in html:
         return []
@@ -55,7 +39,50 @@ def extract_addr(html):
     return [purifier.prettify_text(addr.text) for addr in list_addr]
 
 
-def extract_owner_indicators(html, url):
+def extract_copyright_info(soup):
+    # copyright extracting
+    list_copyright_info = []
+    # pattern = "((((c|C)opyright)?\s?(&copy;|©|\(c\)|（c）)\s?((c|C)opyright)?)|(&copy;|©))"
+    pattern = "(((c|C)opyright)|(&copy;|©|\(c\)|（c）))"
+    list_copyright_tag = soup.find_all(text=re.compile(pattern))
+    if len(list_copyright_tag) > 0:
+        cpy = list_copyright_tag[-1]  # deeper, more specific
+        p = cpy.parent
+        copyright_text = p.text
+        copyright_text = purifier.prettify_text(copyright_text)
+        list_copyright_info.append(copyright_text)
+
+    return list_copyright_info
+
+
+def extract_org_fr_copyright(list_copyright_info):
+    reduntant_words = settings.REDUNDANT_LIST_QUERY
+    reduntant_words.extend(settings.REDUNDANT_LIST_COPYRIGHT)
+    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
+
+    list_entities_fr_cpy = []
+    for copyright_info in list_copyright_info:
+        res_ner = ner_tool.ner_stanford(copyright_info)
+        pattern_cpy = "(((c|C)opyright)|(&copy;|©|\(c\)|（c）))"
+        pattern_year = "(19|20)\d{2}"
+        if "ORGANIZATION" in res_ner:
+            for org in res_ner["ORGANIZATION"]:
+                org = re.sub(compile_redundant_str, "", org, flags=re.I)
+                org = re.sub(pattern_cpy, "", org)
+                org = re.sub(pattern_year, "", org)
+                list_entities_fr_cpy.append(org)
+
+        if "LOCATION" in res_ner:
+            for loc in res_ner["LOCATION"]:
+                loc = re.sub(compile_redundant_str, "", loc, flags=re.I)
+                loc = re.sub(pattern_cpy, "", loc)
+                loc = re.sub(pattern_year, "", loc)
+                list_entities_fr_cpy.append(loc)
+
+    return list_entities_fr_cpy
+
+
+def extract_org_indicators(html, url):
     '''
     :param html:
     :param url: url of this page
@@ -94,102 +121,67 @@ def extract_owner_indicators(html, url):
     if tag_title is not None:
         title = tag_title.text.strip()
 
-    # copyright extracting
-    list_copyright_info = []
-    # pattern = "((((c|C)opyright)?\s?(&copy;|©|\(c\)|（c）)\s?((c|C)opyright)?)|(&copy;|©))"
-    pattern = "(((c|C)opyright)|(&copy;|©|\(c\)|（c）))"
-    list_copyright_tag = soup.find_all(text=re.compile(pattern))
-    if len(list_copyright_tag) > 0:
-        cpy = list_copyright_tag[-1] # deeper, more specific
-        p = cpy.parent
-        copyright_text = p.get_text()
-        copyright_text = purifier.prettify_text(copyright_text)
-        list_copyright_info.append(copyright_text)
-
-    # iteration = re.finditer(pattern, html)
-    # for match in iteration:
-    #     copyright_info = match.group()
-    #     list_copyright_info.append(copyright_info)
+    list_copyright_info = extract_copyright_info(soup)
 
     # print("title: %s, list_logo: %s, list_cpy: %s" % (title, list_logo, list_copyright_info))
     return title, list_logo, list_copyright_info
 
 
-def extract_owner_entities(title, list_logo, list_copyright_info):
-    list_redundant_word = []
+def extract_org_entities(title, list_logo, list_copyright_info):
     reduntant_words = settings.REDUNDANT_LIST_QUERY
     reduntant_words.extend(settings.REDUNDANT_LIST_COPYRIGHT)
-    for w in reduntant_words:
-        list_redundant_word.extend(all_style(w))
-    compile_redundant_str = "(%s)" % "|".join(list_redundant_word)
-    title_str = re.sub(compile_redundant_str, "", title.strip())
+    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
+    title_str = re.sub(compile_redundant_str, "", title.strip(), flags=re.I)
 
     # title_str = re.sub("[\\x21-\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", " ", title_str)
     list_entities_fr_title = [title_str, ]
 
-    list_entities_fr_cpy = []
-    for copyright_info in list_copyright_info:
-        res_ner = ner_tool.ner_stanford(copyright_info)
-        pattern_cpy = "(((c|C)opyright)|(&copy;|©|\(c\)|（c）))"
-        pattern_year = "(19|20)\d{2}"
-        if "ORGANIZATION" in res_ner:
-            for org in res_ner["ORGANIZATION"]:
-                org = re.sub(compile_redundant_str, "", org)
-                org = re.sub(pattern_cpy, "", org)
-                org = re.sub(pattern_year, "", org)
-                list_entities_fr_cpy.append(org)
-
-        if "LOCATION" in res_ner:
-            for loc in res_ner["LOCATION"]:
-                loc = re.sub(compile_redundant_str, "", loc)
-                loc = re.sub(pattern_cpy, "", loc)
-                loc = re.sub(pattern_year, "", loc)
-                list_entities_fr_cpy.extend(loc)
+    list_entities_fr_cpy = extract_org_fr_copyright(list_copyright_info)
 
     list_entities_fr_logo = []
 
     for logo in list_logo:
         logo_name = logo["src"].split("/")[-1].split(".")[0]
-        logo_name = re.sub(compile_redundant_str, "", logo_name)
+        logo_name = re.sub(compile_redundant_str, "", logo_name, flags=re.I)
         logo_name = re.sub("[\\x21-\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", " ", logo_name) # del all characters
         logo_name = re.sub("\d", "", logo_name)
 
-        logo_alt = re.sub(compile_redundant_str, "", logo["alt"])
-        logo_title = re.sub(compile_redundant_str, "", logo["title"])
+        logo_alt = re.sub(compile_redundant_str, "", logo["alt"], flags=re.I)
+        logo_title = re.sub(compile_redundant_str, "", logo["title"], flags=re.I)
 
         logo_text = ""
         try:
             '''use baidu api to ocr imgs'''
-            # img_format = logo["src"].split(".")[-1]
-            # img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
-            # if img_format == "svg":
-            #     continue
-            # res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
-            # if res.status_code == 200:
-            #     open("./temp.png", "wb").write(res.content)
-            #
-            #     #     drawing = svg2rlg("./temp.svg")
-            #     #     renderPM.drawToFile(drawing, "./temp.png")
-            #     #     img_format = "png"
-            #     res_ocr = ocr_tool.img_orc_baidu("./temp.png")
-            #     words_result = res_ocr["words_result"] if "words_result" in res_ocr else []
-            #     list_logo_words = []
-            #     for words in words_result:
-            #         list_logo_words.append(words["words"])
-            #     logo_text = " ".join(list_logo_words)
+            img_format = logo["src"].split(".")[-1]
+            img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
+            if img_format == "svg":
+                continue
+            res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
+            if res.status_code == 200:
+                open("./temp.png", "wb").write(res.content)
+
+                #     drawing = svg2rlg("./temp.svg")
+                #     renderPM.drawToFile(drawing, "./temp.png")
+                #     img_format = "png"
+                res_ocr = ocr_tool.img_orc_baidu("./temp.png")
+                words_result = res_ocr["words_result"] if "words_result" in res_ocr else []
+                list_logo_words = []
+                for words in words_result:
+                    list_logo_words.append(words["words"])
+                logo_text = " ".join(list_logo_words)
             '''use google api to ocr imgs'''
-            ocr_res = ocr_tool.img_orc_google(logo["src"])
-            if ocr_res is None: # access url fail, download manually
-                img_format = logo["src"].split(".")[-1]
-                img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
-                if img_format == "svg":
-                    logo_text = ""
-                else:
-                    res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
-                    if res.status_code == 200:
-                        open("./temp.png", "wb").write(res.content)
-                        ocr_res = ocr_tool.img_orc_google("./temp.png")
-                        logo_text = purifier.prettify_text(ocr_res) if ocr_res is not None else ""
+            # ocr_res = ocr_tool.img_orc_google(logo["src"])
+            # if ocr_res is None: # access url fail, download manually
+            #     img_format = logo["src"].split(".")[-1]
+            #     img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
+            #     if img_format == "svg":
+            #         logo_text = ""
+            #     else:
+            #         res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
+            #         if res.status_code == 200:
+            #             open("./temp.png", "wb").write(res.content)
+            #             ocr_res = ocr_tool.img_orc_google("./temp.png")
+            #             logo_text = purifier.prettify_text(ocr_res) if ocr_res is not None else ""
         except Exception as e:
             logger.war(e)
             continue
@@ -225,8 +217,8 @@ def query_str(html, url):
     for addr in list_addr:
         yield addr
 
-    title, list_logo, list_cpy = extract_owner_indicators(html, url)
-    list_entities_fr_title, list_entities_fr_logo, list_entities_fr_cpy = extract_owner_entities(title, list_logo, list_cpy)
+    title, list_logo, list_cpy = extract_org_indicators(html, url)
+    list_entities_fr_title, list_entities_fr_logo, list_entities_fr_cpy = extract_org_entities(title, list_logo, list_cpy)
     list_logo_text = [en["logo_text"] for en in list_entities_fr_logo]
     list_logo_name= [en["logo_name"] for en in list_entities_fr_logo]
     list_logo_alt = [en["logo_alt"] for en in list_entities_fr_logo]
@@ -302,6 +294,8 @@ if __name__ == "__main__":
             coordi = []
             last_query = ""
             it = query_str(lm["html"], lm["url"])
+
+            query = ""
             while True:
                 try:
                     query = next(it)

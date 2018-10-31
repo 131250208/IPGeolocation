@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import socket
 import pyprind
 from Tools import geolocation, mylogger
-from LandmarksCollector import settings, ownerIdentification as oi
+from LandmarksCollector import settings, org_extracter as oi
 
 logger = mylogger.Logger("../Log/landmarks.py.log")
 
@@ -233,19 +233,56 @@ def get_all_lm():
     return map_ip_coordinate
 
 
+def get_coordination_by_page(html, url, area):
+    coordi = []
+    it = oi.query_str(html, url)
+
+    last_query = ""
+    while True:
+        try:
+            query = next(it)
+            last_query = query
+        except StopIteration:
+            break
+        coordi = geolocation.google_map_coordinate(query + " " + area)
+        logger.info("query: %s" % query)
+        if len(coordi) > 0:
+            last_query = query
+            break
+    logger.war("last_query: %s" % last_query)
+    if len(coordi) > 0:
+        return coordi[0]
+    return None
+
+
 if __name__ == "__main__":
-    # from LandmarksCollector import ownerIdentification oi
-    landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
-    for lm in landmarks:
-        if lm["organization"] == "Eastern Michigan University": # University of Denver, University of California at Los Angeles, CUNY City College
-            print(lm["geo_lnglat"]["pinpointed_area"])
-            it = oi.query_str(lm["html"], lm["url"])
-            while True:
-                try:
-                    print(next(it))
-                except StopIteration:
-                    break
-            print(lm["url"])
+    file_inp = open("E:\\data_preprocessed/http_80_us.json", "r")
+    for line in file_inp:
+        if line != "\n":
+            json_pageinfo = json.loads(line)
+            ip = json_pageinfo["ip"]
+            ipip = geolocation.ip_geolocation_ipip(ip)
+            # if ipip["isp"] != "":
+            #     continue
+            # ipinfo = geolocation.ip_geolocation_ipinfo(ip)
+            lng_ipip = float(ipip["longitude"])
+            lat_ipip = float(ipip["latitude"])
+            # lng_ipinfo = float(ipinfo["longitude"])
+            # lat_ipinfo = float(ipinfo["latitude"])
+            dis_max = 10000
+            # dis0 = geolocation.geodistance(lng_ipip, lat_ipip, lng_ipinfo, lat_ipinfo)
+            if ipip["isp"] == "":
+                # print("dis0: %d, page: %s" % (dis0, json_pageinfo))
+                coordi_by_page = get_coordination_by_page(json_pageinfo["html"], json_pageinfo["url"], ipip["city"])
+
+                if coordi_by_page is not None:
+                    dis1 = geolocation.geodistance(lng_ipip, lat_ipip, coordi_by_page["lng"], coordi_by_page["lat"])
+                    # dis2 = geolocation.geodistance(lng_ipinfo, lat_ipinfo, coordi_by_page["lng"], coordi_by_page["lat"])
+                    # print("dis1: %d, dis2: %d" % (dis1, dis2))
+                    print("dis1: %s" % dis1)
+                    # if dis1 < dis_max and dis2 < dis_max:
+                    if dis1 < dis_max:
+                        logger.war("dis: %s, page: %s" % (dis1, json_pageinfo))
 
 
     # landmarks = find_ip(landmarks)

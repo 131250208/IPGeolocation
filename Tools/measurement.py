@@ -165,10 +165,21 @@ def delete_measurement_by_tag(tag):
     print(res.text)
 
 
-def measure_by_ripe_hugenum(list_target, list_probes, start, days, interval, tag):
+def measure_by_ripe_hugenum(map_account2key, list_target, list_probes, start, days, interval, tag):
+    '''
+    split a huge measurement to small chunks
+    :param list_target:
+    :param list_probes:
+    :param start:
+    :param days:
+    :param interval:
+    :param tag:
+    :return:
+    '''
     days2stamp = 86400.0 * days
-    measurement_chunks = chunks(list_target, 80)
+    measurement_chunks = chunks(list_target, 100)
     size = len(measurement_chunks)
+    assert size <= len(map_account2key.keys())
 
     for ind, mc in enumerate(measurement_chunks):
         interval_ = interval + 0.0
@@ -179,7 +190,7 @@ def measure_by_ripe_hugenum(list_target, list_probes, start, days, interval, tag
         print(res.text)
 
 
-def measure_by_ripe(list_target, list_probes, start_time, stop_time, interval, tag):
+def measure_by_ripe(account, key, list_target, list_probes, start_time, stop_time, interval, tag):
     '''
     start measurements on targets
     :param list_target:
@@ -206,9 +217,9 @@ def measure_by_ripe(list_target, list_probes, start_time, stop_time, interval, t
             "tags": tag,
             "interval": interval,
         })
-    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % settings.KEY_RIPE
+    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % key
     data = {
-        "bill_to": "wychengpublic@163.com",
+        "bill_to": account,
         "is_oneoff": False,
         "start_time": start_time,
         "stop_time": stop_time,

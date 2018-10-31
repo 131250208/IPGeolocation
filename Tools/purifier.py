@@ -35,7 +35,7 @@ def get_pure_soup_fr_html(html, ignore_n=False):
     :param ignore_n: to remove all blanks or not
     :return: soup
     '''
-    html = re.sub("<!-+.*-+>", "", html)
+    html = re.sub("<!-+.*?-+>", "", html)
     if ignore_n:
         html = re.sub("[\n\r]+", " ", html)
         html = re.sub("[\t\s ]+", " ", html)

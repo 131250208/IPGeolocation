@@ -23,7 +23,7 @@ BlACK_LIST_LOGO = ["button", "btn", "login", "submit"]
 
 REDUNDANT_LIST_COPYRIGHT = ["Infringement", "Privacy Statement", "Privacy Policy", "Disclaimer", "Nondiscrimination",
                         "All Rights Reserved", "Copyright", "Supported by", "NSF", "Site Policies", "Site Contact"
-                        "Phone", "Fax", ]
+                        "Phone", "Fax", "Site Contact"]
 
 # invalid Planetlab landmarks
 INVALID_LANDMARKS = ["Oklahoma State University (Tulsa)", "University of California, Riverside",

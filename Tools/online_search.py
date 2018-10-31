@@ -8,7 +8,7 @@ import time
 import re
 from Tools import purifier, geolocation
 import logging
-from Tools import requests_tools as rt
+from Tools import requests_tools as rt, settings
 
 def random_sleep():
     random.seed(time.time())
@@ -30,12 +30,8 @@ def google_search(queryStr):
     queryStr = quote(queryStr)
     url = 'https://www.google.com/search?q=%s' % queryStr
 
-    try:
-        response = requests.get(url, headers=rt.headers, proxies=rt.get_proxies_abroad(), timeout=10)
-        html = response.text
-    except:
-        print("connection error")
-        return ""
+    response = rt.try_best_request_get(url, 5, "google_search", "abroad")
+    html = response.text
     return html
 
 
@@ -70,19 +66,32 @@ def extract_search_results(html):
 
 
 def google_search_format(t_keywords):
-    html = google_search(t_keywords)
-    res = extract_search_results(html)
-    if len(res) == 0:
-        sys.stderr.write("..... search again ...")
-        random_sleep()
-        html = google_search(t_keywords)
-        res = extract_search_results(html)
-        return res
-    return res
+    while True:
+        try:
+            html = google_search(t_keywords)
+            soup = BeautifulSoup(html, "lxml")
+            kg_panel = soup.select_one("div.knowledge-panel")
+            if kg_panel is None:
+                print("kgp is none")
+                continue
+            parents_website = kg_panel.find(text="Website").parents
+            for p in parents_website:
+                if p.name == "a":
+                    website = p["href"]
+                    break
+        except AssertionError:
+            continue
+    return website
+
+
+def google_kg_search(query_str):
+    api = "https://kgsearch.googleapis.com/v1/entities:search?query=%s&key=%s&limit=1&indent=True" % (quote(query_str), settings.GOOGLE_API_KEY)
+    res = rt.try_best_request_get(api, 5, "google_kg_search", "abroad")
+    return res.text
 
 # District of Columbia,
 if __name__ == '__main__':
     # print(google_web_search("suXus X-central Remote Monitoring & Management Solution"))
     # whois("143.248.48.110")
-    print(geolocation.google_map_coordinate("徐州"))
+    print(google_kg_search("Wyoming Technical Institute (WyoTech)"))
 
