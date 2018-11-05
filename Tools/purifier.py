@@ -40,7 +40,7 @@ def get_pure_soup_fr_html(html, ignore_n=False):
         html = re.sub("[\n\r]+", " ", html)
         html = re.sub("[\t\s ]+", " ", html)
 
-    soup = BeautifulSoup(html, "html5lib")
+    soup = BeautifulSoup(html, "lxml")
 
     # head = soup.select_one("head")
     # if head is not None:

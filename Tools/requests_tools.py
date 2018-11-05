@@ -115,7 +115,7 @@ def try_best_request_post(url, data, maxtime, tag, type):
     return res
 
 
-def try_best_request_get(url, maxtime, tag, type):
+def try_best_request_get(url, maxtime, tag, type=None):
     error_count = 0
     while True:
         try:
@@ -124,6 +124,7 @@ def try_best_request_get(url, maxtime, tag, type):
                 proxies = get_proxies_abroad()
             elif type == "spider":
                 proxies = get_proxies_spider()
+
             res = requests.get(url, headers=get_random_headers(), proxies=proxies, timeout=10)
             break
         except Exception as e:

@@ -11,6 +11,7 @@ import json
 import datetime
 import math
 import pyprind
+from urllib import parse
 
 def init_chrome():
     chrome_options = webdriver.ChromeOptions()
@@ -154,18 +155,39 @@ def chunks_avg(arr, m):
 
 
 def delete_measurement(measurement_id):
-    api = "https://atlas.ripe.net:443/api/v2/measurements/%s?key=%s" % (measurement_id, settings.KEY_RIPE)
+    api = "https://atlas.ripe.net:443/api/v2/measurements/%s?key=%s" % (measurement_id, settings.RIPE_KEY_O)
     res = requests.delete(api)
     print(res.text)
 
 
+def quote(queryStr):
+    try:
+        queryStr = parse.quote(queryStr)
+    except:
+        queryStr = parse.quote(queryStr.encode('utf-8', 'ignore'))
+
+    return queryStr
+
+
 def delete_measurement_by_tag(tag):
-    api = "https://atlas.ripe.net:443/api/v2/measurements/my-tags/%s/stop?key=%s" % (tag, settings.KEY_RIPE)
-    res = requests.post(api)
+    tag = quote(tag)
+    api = "https://atlas.ripe.net:443/api/v2/measurements/my-tags/%s/stop?key=%s" % (tag, settings.RIPE_KEY_O)
+    data = {"tag": tag}
+    res = requests.post(api, data=json.dumps(data))
     print(res.text)
 
 
-def measure_by_ripe_hugenum(map_account2key, list_target, list_probes, start, days, interval, tag):
+def measure_by_ripe_hugenum_oneoff(list_target, list_probes, start, tags):
+    measurement_chunks = chunks(list_target, 100)
+
+    for ind, mc in enumerate(measurement_chunks):
+        start_time = start + 1800.0 * ind
+        res = measure_by_ripe_oneoff(mc, list_probes, start_time, tags)
+        print(res.status_code)
+        print(res.text)
+
+
+def measure_by_ripe_hugenum_scheduled(list_target, list_probes, start, days, interval, tags):
     '''
     split a huge measurement to small chunks
     :param list_target:
@@ -179,18 +201,56 @@ def measure_by_ripe_hugenum(map_account2key, list_target, list_probes, start, da
     days2stamp = 86400.0 * days
     measurement_chunks = chunks(list_target, 100)
     size = len(measurement_chunks)
-    assert size <= len(map_account2key.keys())
+    # assert size <= len(map_account2key.keys())
 
     for ind, mc in enumerate(measurement_chunks):
         interval_ = interval + 0.0
         start_time = start + math.ceil(interval_ / size) * ind
         stop_time = start_time + days2stamp
-        res = measure_by_ripe(mc, list_probes, start_time, stop_time, interval, tag)
+        res = measure_by_ripe_scheduled(mc, list_probes, start_time, stop_time, interval, tags)
         print(res.status_code)
         print(res.text)
 
 
-def measure_by_ripe(account, key, list_target, list_probes, start_time, stop_time, interval, tag):
+def measure_by_ripe_oneoff(list_target, list_probes, start_time, tags):
+    list_measurement = []
+    for t in list_target:
+        list_measurement.append({
+            "is_public ": True,
+            "description": "Traceroute measurement to %s" % t,
+            "af": 4,
+            "type": "traceroute",
+            "packets": 4,
+            "first_hop": 1,
+            "max_hops": 32,
+            "paris": 16,
+            "size": 48,
+            "protocol": "ICMP",
+            "duplicate_timeout": 4000,
+            "hop_by_hop_option_size": 0,
+            "destination_option_size": 0,
+            "dont_fragment": False,
+            "target": t,
+            "tags": tags,
+        })
+    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % settings.RIPE_KEY_O
+    data = {
+        "bill_to": "wychengpublic@163.com",
+        "is_oneoff": True,
+        "start_time": start_time,
+        "definitions": list_measurement,
+        "probes": [{
+            "requested": len(list_probes),
+            "type": "probes",
+            "value": ",".join(list_probes),
+        }]
+    }
+
+    res = requests.post(api, data=json.dumps(data), headers=rt.get_random_headers())
+    return res
+
+
+def measure_by_ripe_scheduled(list_target, list_probes, start_time, stop_time, interval, tags):
     '''
     start measurements on targets
     :param list_target:
@@ -214,12 +274,12 @@ def measure_by_ripe(account, key, list_target, list_probes, start_time, stop_tim
             "destination_option_size": 0,
             "dont_fragment": False,
             "target": t,
-            "tags": tag,
+            "tags": tags,
             "interval": interval,
         })
-    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % key
+    api = "https://atlas.ripe.net:443/api/v2/measurements/traceroute?key=%s" % settings.RIPE_KEY_O
     data = {
-        "bill_to": account,
+        "bill_to": "wychengpublic@163.com",
         "is_oneoff": False,
         "start_time": start_time,
         "stop_time": stop_time,
@@ -235,16 +295,64 @@ def measure_by_ripe(account, key, list_target, list_probes, start_time, stop_tim
     res = requests.post(api, data=json.dumps(data), headers=rt.get_random_headers())
     return res
 
+
+def get_measurement_res_by_tag(tag):
+    api = "https://atlas.ripe.net:443/api/v2/measurements/?tags=%s&key=%s" % (tag, settings.RIPE_KEY_O)
+
+    url = api
+    dict_target2mfrprbs = {}
+    while True:
+        res = rt.try_best_request_get(url, 5, get_measurement_res_by_tag)
+        measurement = json.loads(res.text)
+        results = measurement["results"]
+
+        for dst in results:
+            target = dst["target"]
+            res_dst = rt.try_best_request_get(dst["result"], 5, get_measurement_res_by_tag)
+            measurement_per_dst = json.loads(res_dst.text)
+
+            dict_prb2trac = {}
+            for prb in measurement_per_dst:
+                prb_id = prb["prb_id"]
+                prb_res = prb["result"]
+                list_res = []
+                for res in prb_res:
+                    pk_hop = res["result"]
+                    rtts = []
+                    addr_rt = None
+                    for pk in pk_hop:
+                        rtt = pk["rtt"] if "x" not in pk else -1
+                        rtts.append(rtt)
+                        if "from" in pk:
+                            addr_rt = pk["from"]
+
+                    list_res.append({
+                        "hop": res["hop"],
+                        "addr_rt": addr_rt,
+                        "rtts": rtts,
+                    })
+                dict_prb2trac[prb_id] = list_res
+
+            dict_target2mfrprbs[target] = dict_prb2trac
+
+        next_page = measurement["next"]
+        if next_page is None:
+            break
+        url = next_page
+
+    return dict_target2mfrprbs
+
+
 if __name__ == "__main__":
-    delete_measurement_by_tag("ip-geolocation-train-dataset")
+    res = get_measurement_res_by_tag("ipg-2018110101")
+    print(res)
     # import pytz
     # tz = pytz.timezone('America/New_York')
-    # start_time = datetime.datetime.now(tz).timestamp() + 120
-    #
+    # start_time = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')
+
     # map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
     # list_target = [k for k in map_ip_coordination.keys() if k is not None]
     # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    # # start_time = datetime.datetime(2018, 10, 28, 7, 50, 0).timestamp()
-    # measure_by_ripe_hugenum(list_target, probes, start_time, 1, 21600, ["ip-geolocation-train-dataset",])
+    # measure_by_ripe_hugenum_oneoff(list_target, probes, start_time, ["ipg-2018110101",])
 
 

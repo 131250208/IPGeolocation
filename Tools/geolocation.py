@@ -8,7 +8,7 @@ import datx
 import requests
 from Tools import mylogger
 logger = mylogger.Logger("../Log/geolocation.py.log")
-
+import geoip2.database
 
 def quote(queryStr):
     try:
@@ -86,7 +86,78 @@ def google_map_coordinate(queryStr):
     return list_location_candidates
 
 
-def ip_geolocation_ipinfo(ip):
+def geodistance(lng1, lat1, lng2, lat2):
+    '''
+    python计算两点间距离-m
+    :param lng1: float
+    :param lat1:
+    :param lng2:
+    :param lat2:
+    :return:
+    '''
+    lng1, lat1, lng2, lat2 = map(radians, [lng1, lat1, lng2, lat2])
+    dlon = lng2-lng1
+    dlat = lat2-lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    dis = 2 * asin(sqrt(a)) * 6371 * 1000
+    return dis
+
+
+def dis_btw_2p(query1, query2):
+    r1 = google_map_coordinate(query1)
+    r2 = google_map_coordinate(query2)
+
+    if len(r1) > 0 and len(r2) > 0:
+        dis = geodistance(r1[0]["lng"], r1[0]["lat"], r2[0]["lng"], r2[0]["lat"])
+    else:
+        dis = -1
+    print("place1: %s, place2: %s" % (r1, r2))
+    return dis
+
+
+def variance_coordinates(coordinates):
+    if len(coordinates) == 0:
+        return -1
+    exp_lat = 0
+    exp_lng = 0
+    for co in coordinates:
+        exp_lng += co["lng"]
+        exp_lat += co["lat"]
+    exp_lng = exp_lng / len(coordinates)
+    exp_lat = exp_lat / len(coordinates)
+
+    dis = 0
+    for co in coordinates:
+        dis += geodistance(co["lng"], co["lat"], exp_lng, exp_lat)
+    return dis
+
+
+def ip_geolocation_geolite2(ip):
+    reader = geoip2.database.Reader('../resources/GeoLite2-City.mmdb')
+    res = reader.city(ip)
+    return {
+        "country": res.country.name,
+        "region": res.subdivisions.most_specific.name,
+        "city": res.city.name,
+        "longitude": res.location.longitude,
+        "latitude": res.location.latitude
+    }
+
+
+def ip_geolocation_ipstack(ip): # not free, 10000/month
+    api = "http://api.ipstack.com/%s?access_key=%s" % (ip, "a9b953df82f98f0169d1bbefe67f42d9")
+    res = rt.try_best_request_get(api, 5, "ip_geolocation_ipstack")
+    json_res = json.loads(res.text)
+    return {
+        "country": json_res["country_name"] if json_res["country_name"] is not None else "",
+        "region": json_res["region_name"] if json_res["country_name"] is not None else "",
+        "city": json_res["city"] if json_res["country_name"] is not None else "",
+        "longitude": json_res["longitude"] if json_res["country_name"] is not None else "",
+        "latitude": json_res["latitude"] if json_res["country_name"] is not None else "",
+    }
+
+
+def ip_geolocation_ipinfo(ip): # not free, 1000/day
     '''
     ip info from ipinfo.io
     :param ip:
@@ -166,40 +237,66 @@ def ip_geolocation_ipip(ip):
     }
 
 
-def geodistance(lng1, lat1, lng2, lat2):
-    '''
-    python计算两点间距离-m
-    :param lng1: float
-    :param lat1:
-    :param lng2:
-    :param lat2:
-    :return:
-    '''
-    lng1, lat1, lng2, lat2 = map(radians, [lng1, lat1, lng2, lat2])
-    dlon = lng2-lng1
-    dlat = lat2-lat1
-    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-    dis = 2 * asin(sqrt(a)) * 6371 * 1000
-    return dis
-
-
-def dis_btw_2p(query1, query2):
-    r1 = google_map_coordinate(query1)
-    r2 = google_map_coordinate(query2)
-
-    if len(r1) > 0 and len(r2) > 0:
-        dis = geodistance(r1[0]["lng"], r1[0]["lat"], r2[0]["lng"], r2[0]["lat"])
-    else:
-        dis = -1
-    print("place1: %s, place2: %s" % (r1, r2))
-    return dis
-
 if __name__ == "__main__":
+    print(ip_geolocation_ipinfo("128.175.19.82"))
+    # print(dis_btw_2p("Computer Lab of Paris 6 (Lip6)", "Universite Pierre et Marie Curie"))
     # Mercer County NEC LABORATORIES AMERICA, INC. NEC Relentless passion for innovation, Mercer County
-    print(dis_btw_2p("NEC LABORATORIES AMERICA NEC , Mercer County",
-                     "NEC Laboratories Mercer County"))
+    # print(dis_btw_2p("NEC LABORATORIES AMERICA NEC , Mercer County",
+    #                  "NEC Laboratories Mercer County"))
     # print(dis_btw_2p("Palo Alto Research Center Incorporated Santa Clara County", "Palo Alto Research Center Santa Clara County"))
-    pass
+
+
+    # import socket
+    # import struct
+    # import pyprind
+    #
+    # list_ip_field = json.load(open("../resources/ip_fields_us.json", "r"))
+    # ipgeo_valid = []
+    # for ipf in pyprind.prog_bar(list_ip_field):
+    #     start = ipf["start"]
+    #     end = ipf["end"]
+    #     int_start = socket.ntohl(struct.unpack("I", socket.inet_aton(str(start)))[0])
+    #     int_end = socket.ntohl(struct.unpack("I", socket.inet_aton(str(end)))[0])
+    #     for int_ip in range(int_start, int_end + 1):
+    #         ip = socket.inet_ntoa(struct.pack('I', socket.htonl(int_ip)))
+    #         ipip = ip_geolocation_ipip(ip)
+    #         if ipip["longitude"] != "" and ipip["latitude"] != "":
+    #             ipgeo_valid.append(ipip)
+    # json.dump(ipgeo_valid, open("../resources/ipgeo_ipip_us.json", "w"))
+
+    # import pyprind
+    # list_uni = json.load(open("../resources/universities_us_0.9.json", "r"))
+    # count = 0
+    #
+    # for uni in pyprind.prog_bar(list_uni):
+    #     if "coordinate_org" in uni and "ip" in uni:
+    #         ip = uni["ip"]
+    #         co = uni["coordinate_org"]
+    #         ipip = ip_geolocation_ipip(ip)
+    #         if ipip["longitude"] != "":
+    #             dis = geodistance(float(ipip["longitude"]), float(ipip["latitude"]), co["lng"], co["lat"])
+    #             if dis < 10000:
+    #                 print(dis)
+    #                 count += 1
+    #             else:
+    #                 print("greater than 10000, isp: %s" % ipip["isp"])
+    #         else:
+    #             print("no (lng, lat), isp: %s " % ipip["isp"])
+    #
+    # print(count)
+    # for uni in pyprind.prog_bar(list_uni):
+    #     if "coordinate_org" not in uni:
+    #         count_fail += 1
+    #         coordinates = google_map_coordinate(uni["state_name"] + " " + uni["university_name"])
+    #         print(variance_coordinates(coordinates))
+    #         # if len(coordinates) == 0:
+    #         #     continue
+    #         # elif len(coordinates) == 1:
+    #         #     uni["coordinate_org"] = coordinates[0]
+    #         # else:
+    #         #     if variance_coordinates(coordinates) < 1000:
+    #         #         uni["coordinate_org"] = coordinates[0]
+    # # json.dump(list_uni, open("../resources/universities_us_0.9.json", "w"))
 
     # count = 0
     #

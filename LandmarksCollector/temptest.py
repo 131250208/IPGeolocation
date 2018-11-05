@@ -17,6 +17,7 @@ def test_org_extracter():
                     break
             print(lm["url"])
 
+
 def test_copyright():
     pass
     # landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
@@ -37,4 +38,5 @@ def test_copyright():
     #         print("list_cpyinfo_raw: %s, list_cpy: %s" % (list_copyright_info, list_org_fr_copyright))
 
 if __name__ == "__main__":
-    oi.extract_org_fr_copyright(["Palo Alto Research Center Incorporated; © 2018. All Rights Reserved "])
+    from LandmarksCollector import landmarks
+    landmarks.search_lm_from_web("../resources/universities_us_0.9.json")

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Scrapy settings for wikipediacrawler project
+# Scrapy settings for crawler project
 #
 # For simplicity, this file contains only settings considered important or
 # commonly used. You can find more settings consulting the documentation:
@@ -12,31 +12,31 @@
 # https://en.wikipedia.org/wiki/Lists_of_American_institutions_of_higher_education
 # https://en.wikipedia.org/wiki/Lists_of_schools_in_the_United_States
 # https://en.wikipedia.org/wiki/Category:Middle_schools_in_North_Carolina
-LOG_LEVEL = 'WARNING'
-LOG_FILE = '../Log/log.log'
+# LOG_LEVEL = 'WARNING'
+# LOG_FILE = '../Log/log.log'
 
-BOT_NAME = 'wikipediacrawler'
+BOT_NAME = 'crawler'
 
-SPIDER_MODULES = ['wikipediacrawler.spiders']
-NEWSPIDER_MODULE = 'wikipediacrawler.spiders'
+SPIDER_MODULES = ['crawler.spiders']
+NEWSPIDER_MODULE = 'crawler.spiders'
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'wikipediacrawler (+http://www.yourdomain.com)'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-#CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 32
 
 # Configure a delay for requests for the same website (default: 0)
 # See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-#DOWNLOAD_DELAY = 3
+DOWNLOAD_DELAY = 3
 # The download delay setting will honor only one of:
-#CONCURRENT_REQUESTS_PER_DOMAIN = 16
-#CONCURRENT_REQUESTS_PER_IP = 16
+CONCURRENT_REQUESTS_PER_DOMAIN = 16
+CONCURRENT_REQUESTS_PER_IP = 16
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -45,22 +45,23 @@ ROBOTSTXT_OBEY = True
 #TELNETCONSOLE_ENABLED = False
 
 # Override the default request headers:
-#DEFAULT_REQUEST_HEADERS = {
-#   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-#   'Accept-Language': 'en',
-#}
+DEFAULT_REQUEST_HEADERS = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en',
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+}
 
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    'wikipediacrawler.middlewares.WikipediacrawlerSpiderMiddleware': 543,
-#}
+# SPIDER_MIDDLEWARES = {
+#     'crawler.middlewares.WikipediacrawlerSpiderMiddleware': 543,
+# }
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    'wikipediacrawler.middlewares.MyCustomDownloaderMiddleware': 543,
-#}
+DOWNLOADER_MIDDLEWARES = {
+   'crawler.middlewares.WikipediacrawlerSpiderMiddleware': 543,
+}
 
 # Enable or disable extensions
 # See http://scrapy.readthedocs.org/en/latest/topics/extensions.html
@@ -71,7 +72,7 @@ ROBOTSTXT_OBEY = True
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 #ITEM_PIPELINES = {
-#    'wikipediacrawler.pipelines.WikipediacrawlerPipeline': 300,
+#    'crawler.pipelines.WikipediacrawlerPipeline': 300,
 #}
 
 # Enable and configure the AutoThrottle extension (disabled by default)

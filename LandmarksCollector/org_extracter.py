@@ -55,7 +55,93 @@ def extract_copyright_info(soup):
     return list_copyright_info
 
 
-def extract_org_fr_copyright(list_copyright_info):
+def extract_logo(soup, url):
+    # logo extracting
+    list_image = soup.select("img")
+    list_logo = []
+    for img in list_image:
+        str_tag = str(img).lower()
+        for black_w in settings.BlACK_LIST_LOGO:
+            if black_w in str_tag: continue
+
+        try:
+            img_src = img["src"]
+        except KeyError as ke:
+            continue
+        img_name = img_src.split("/")[-1].split(".")[0]
+        img_alt = img["alt"] if "alt" in img.attrs else ""
+        img_id = img["id"] if "id" in img.attrs else ""
+        img_title = img["title"] if "title" in img.attrs else ""
+        img_class = " ".join(img["class"]) if "class" in img.attrs else ""
+
+        str_indi = " ".join((img_name, img_alt, img_id, img_class, img_title))
+
+        if "logo" in str_indi.lower():
+            # link host with path of the img, pay attention to relative path and those already include scheme
+            img_src = rt.recover_url(url, img_src)
+            list_logo.append({"src": img_src, "alt": img_alt, "title": img_title})
+    return list_logo
+
+
+def extract_org_fr_logo(soup, url):
+    reduntant_words = settings.REDUNDANT_LIST_QUERY
+    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
+
+    list_logo = extract_logo(soup, url)
+    list_entities_fr_logo = []
+    for logo in list_logo:
+        logo_name = logo["src"].split("/")[-1].split(".")[0]
+        logo_name = re.sub(compile_redundant_str, "", logo_name, flags=re.I)
+        logo_name = re.sub("[\\x21-\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", " ", logo_name)  # del all characters
+        logo_name = re.sub("\d", "", logo_name)
+
+        logo_alt = re.sub(compile_redundant_str, "", logo["alt"], flags=re.I)
+        logo_title = re.sub(compile_redundant_str, "", logo["title"], flags=re.I)
+
+        logo_text = ""
+        try:
+            '''use baidu api to ocr imgs'''
+            # img_format = logo["src"].split(".")[-1]
+            # img_format = re.sub("\?.*", "", img_format)  # debug './temp.jpg?itok=w2hy4cip'
+            # if img_format == "svg":
+            #     continue
+            # res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
+            # if res.status_code == 200:
+            #     open("./temp.png", "wb").write(res.content)
+            #
+            #     #     drawing = svg2rlg("./temp.svg")
+            #     #     renderPM.drawToFile(drawing, "./temp.png")
+            #     #     img_format = "png"
+            #     res_ocr = ocr_tool.img_orc_baidu("./temp.png")
+            #     words_result = res_ocr["words_result"] if "words_result" in res_ocr else []
+            #     list_logo_words = []
+            #     for words in words_result:
+            #         list_logo_words.append(words["words"])
+            #     logo_text = " ".join(list_logo_words)
+            '''use google api to ocr imgs'''
+            ocr_res = ocr_tool.img_orc_google(logo["src"])
+            if ocr_res is None: # access url fail, download manually
+                img_format = logo["src"].split(".")[-1]
+                img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
+                if img_format == "svg":
+                    logo_text = ""
+                else:
+                    res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
+                    if res.status_code == 200:
+                        open("./temp.png", "wb").write(res.content)
+                        ocr_res = ocr_tool.img_orc_google("./temp.png")
+                        logo_text = purifier.prettify_text(ocr_res) if ocr_res is not None else ""
+        except Exception as e:
+            logger.war(e)
+            continue
+        list_entities_fr_logo.append({"logo_name": logo_name, "logo_alt": logo_alt, "logo_title": logo_title,
+                                      "logo_text": logo_text})
+    return list_entities_fr_logo
+
+
+def extract_org_fr_copyright(soup):
+    list_copyright_info = extract_copyright_info(soup)
+
     reduntant_words = settings.REDUNDANT_LIST_QUERY
     reduntant_words.extend(settings.REDUNDANT_LIST_COPYRIGHT)
     compile_redundant_str = "(%s)" % "|".join(reduntant_words)
@@ -82,113 +168,16 @@ def extract_org_fr_copyright(list_copyright_info):
     return list_entities_fr_cpy
 
 
-def extract_org_indicators(html, url):
-    '''
-    :param html:
-    :param url: url of this page
-    :return: title, list_logo, list_copyright_info
-    '''
-
-    soup = purifier.get_pure_soup_fr_html(html)
-
-    # logo extracting
-    list_image = soup.select("img")
-    list_logo = []
-    for img in list_image:
-        str_tag = str(img).lower()
-        for black_w in settings.BlACK_LIST_LOGO:
-            if black_w in str_tag: continue
-
-        try:
-            img_src = img["src"]
-        except KeyError as ke:
-            continue
-        img_name = img_src.split("/")[-1].split(".")[0]
-        img_alt = img["alt"] if "alt" in img.attrs else ""
-        img_id = img["id"] if "id" in img.attrs else ""
-        img_title = img["title"] if "title" in img.attrs else ""
-        img_class = " ".join(img["class"]) if "class" in img.attrs else ""
-
-        str_indi = " ".join((img_name, img_alt, img_id, img_class, img_title))
-
-        if "logo" in str_indi.lower():
-            # link host with path of the img, pay attention to relative path and those already include scheme
-            img_src = rt.recover_url(url, img_src)
-            list_logo.append({"src": img_src, "alt": img_alt, "title": img_title})
+def get_title(soup):
+    reduntant_words = settings.REDUNDANT_LIST_QUERY
+    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
 
     title = ""
     tag_title = soup.select_one("title")
     if tag_title is not None:
         title = tag_title.text.strip()
-
-    list_copyright_info = extract_copyright_info(soup)
-
-    # print("title: %s, list_logo: %s, list_cpy: %s" % (title, list_logo, list_copyright_info))
-    return title, list_logo, list_copyright_info
-
-
-def extract_org_entities(title, list_logo, list_copyright_info):
-    reduntant_words = settings.REDUNDANT_LIST_QUERY
-    reduntant_words.extend(settings.REDUNDANT_LIST_COPYRIGHT)
-    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
     title_str = re.sub(compile_redundant_str, "", title.strip(), flags=re.I)
-
-    # title_str = re.sub("[\\x21-\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", " ", title_str)
-    list_entities_fr_title = [title_str, ]
-
-    list_entities_fr_cpy = extract_org_fr_copyright(list_copyright_info)
-
-    list_entities_fr_logo = []
-
-    for logo in list_logo:
-        logo_name = logo["src"].split("/")[-1].split(".")[0]
-        logo_name = re.sub(compile_redundant_str, "", logo_name, flags=re.I)
-        logo_name = re.sub("[\\x21-\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", " ", logo_name) # del all characters
-        logo_name = re.sub("\d", "", logo_name)
-
-        logo_alt = re.sub(compile_redundant_str, "", logo["alt"], flags=re.I)
-        logo_title = re.sub(compile_redundant_str, "", logo["title"], flags=re.I)
-
-        logo_text = ""
-        try:
-            '''use baidu api to ocr imgs'''
-            img_format = logo["src"].split(".")[-1]
-            img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
-            if img_format == "svg":
-                continue
-            res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
-            if res.status_code == 200:
-                open("./temp.png", "wb").write(res.content)
-
-                #     drawing = svg2rlg("./temp.svg")
-                #     renderPM.drawToFile(drawing, "./temp.png")
-                #     img_format = "png"
-                res_ocr = ocr_tool.img_orc_baidu("./temp.png")
-                words_result = res_ocr["words_result"] if "words_result" in res_ocr else []
-                list_logo_words = []
-                for words in words_result:
-                    list_logo_words.append(words["words"])
-                logo_text = " ".join(list_logo_words)
-            '''use google api to ocr imgs'''
-            # ocr_res = ocr_tool.img_orc_google(logo["src"])
-            # if ocr_res is None: # access url fail, download manually
-            #     img_format = logo["src"].split(".")[-1]
-            #     img_format = re.sub("\?.*", "", img_format) # debug './temp.jpg?itok=w2hy4cip'
-            #     if img_format == "svg":
-            #         logo_text = ""
-            #     else:
-            #         res = requests.get(logo["src"], proxies=rt.get_proxies_abroad(), timeout=30)
-            #         if res.status_code == 200:
-            #             open("./temp.png", "wb").write(res.content)
-            #             ocr_res = ocr_tool.img_orc_google("./temp.png")
-            #             logo_text = purifier.prettify_text(ocr_res) if ocr_res is not None else ""
-        except Exception as e:
-            logger.war(e)
-            continue
-        list_entities_fr_logo.append({"logo_name": logo_name, "logo_alt": logo_alt, "logo_title": logo_title,
-                                      "logo_text": logo_text})
-
-    return list_entities_fr_title, list_entities_fr_logo, list_entities_fr_cpy
+    return title_str
 
 
 def concatenate_entities(list_entities):
@@ -209,7 +198,7 @@ def query_str(html, url):
     :param url:
     :return:
     '''
-    # addr first
+    # get addr first
     list_addr = extract_addr(html)
     if len(list_addr) > 1:
         list_addr = sorted(list_addr, key=lambda item: len(item), reverse=True)
@@ -217,8 +206,14 @@ def query_str(html, url):
     for addr in list_addr:
         yield addr
 
-    title, list_logo, list_cpy = extract_org_indicators(html, url)
-    list_entities_fr_title, list_entities_fr_logo, list_entities_fr_cpy = extract_org_entities(title, list_logo, list_cpy)
+    # get ZIP code
+
+    # get organization info
+    soup = purifier.get_pure_soup_fr_html(html)
+    title = get_title(soup)
+    list_entities_fr_logo = extract_org_fr_logo(soup, url)
+    list_entities_fr_cpy = extract_org_fr_copyright(soup)
+
     list_logo_text = [en["logo_text"] for en in list_entities_fr_logo]
     list_logo_name= [en["logo_name"] for en in list_entities_fr_logo]
     list_logo_alt = [en["logo_alt"] for en in list_entities_fr_logo]
@@ -226,7 +221,7 @@ def query_str(html, url):
 
     query1 = concatenate_entities(list_entities_fr_cpy)
 
-    list_entities = list_entities_fr_title
+    list_entities = [title, ]
     list_entities.extend(list_entities_fr_cpy)
     query2 = concatenate_entities(list_entities)
 
@@ -239,13 +234,13 @@ def query_str(html, url):
     list_entities.extend(list_logo_name)
     query6 = concatenate_entities(list_entities)
 
-    query7 = list_entities_fr_title[0]
-    query8 = concatenate_entities(list_logo_title)
-    query9 = concatenate_entities(list_logo_text)
-    query10 = concatenate_entities(list_logo_alt)
-    query11 = concatenate_entities(list_logo_name)
+    # query7 = title
+    # query8 = concatenate_entities(list_logo_title)
+    # query9 = concatenate_entities(list_logo_text)
+    # query10 = concatenate_entities(list_logo_alt)
+    # query11 = concatenate_entities(list_logo_name)
 
-    tuple_query = (query6, query5, query4, query3, query2, query1, query7, query8, query9, query10, query11)
+    tuple_query = (query6, query5, query4, query3, query2, query1)
     list_query = []
     for q in tuple_query: # remove the redundant str
         if q.strip() not in list_query and q.strip() != "":
@@ -260,67 +255,47 @@ def query_str(html, url):
     # All Right Reserved. © 2015 Kyowa EXEO Corporation
     # Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA
     # 智能网络监控系统Copyright © 2018 Shanghai Technology All rights Reserved.
+
+
+def find_pages_with_copyright(in_file_path, out_file_path, index):
+    '''
+    identify monitoring pages
+    :param in_file_path:
+    :param out_file_path:
+    :param index:
+    :return:
+    '''
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+    f_out = open(out_file_path, "a", encoding="utf-8")
+
+    ind = 0
+    count = 0
+    for line in f_inp:
+        if ind < index or line.strip() == "\n":
+            print("-----------------ind: %d pass--------------------" % (ind))
+            ind += 1
+            continue
+        try:
+            pageInfo = json.loads(line)
+        except Exception:
+            continue
+
+        html = pageInfo["html"]
+        soup = purifier.get_pure_soup_fr_html(html)
+
+        org_fr_copyright = extract_org_fr_copyright(soup)
+        if len(org_fr_copyright) > 0:
+            f_out.write("%s\n" % json.dumps(pageInfo))
+            count += 1
+            logging.warning("----------count: %d-------ind: %d identification: %s--------------------" % (count, ind, True))
+        else:
+            print("--------count: %d---------ind: %d identification: %s--------------------" % (count, ind, False))
+        ind += 1
+
+    f_out.close()
+
 if __name__ == "__main__":
-    landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
-    # json.dump(landmarks, open("../resources/landmarks_planetlab_0.3.json", "w"))
-
-    count_us = 0
-    count_fail = 0
-    count_mul = 0
-    error_dis = 0
-    for lm in landmarks:
-        if lm["organization"] in settings.INVALID_LANDMARKS:
-            continue
-        if settings.INVALID_LANDMARKS_KEYWORD[0] in lm["organization"] or \
-            settings.INVALID_LANDMARKS_KEYWORD[1] in lm["organization"]:
-                continue
-        # ------------------------------------------------------
-        if "geo_lnglat" not in lm:
-            continue
-        country = lm["geo_lnglat"]["country"]
-        if country == "United States" and "ip" in lm and "html" in lm:
-            area_pinpointed = lm["geo_lnglat"]["pinpointed_area"]
-
-            org = lm["organization"]
-            coordi = geolocation.google_map_coordinate(org + " " + area_pinpointed)
-            if len(coordi) == 0:
-                dis_ground = -1
-            else:
-                dis_ground = geolocation.geodistance(coordi[0]["lng"], coordi[0]["lat"], float(lm["longitude"]),
-                                                 float(lm["latitude"]))
-            logger.war("org: %s, res_num:%d, ground_truth_dis: %s" % (org, len(coordi), dis_ground))
-
-            # -----------------------------------------------------------------------------------
-            coordi = []
-            last_query = ""
-            it = query_str(lm["html"], lm["url"])
-
-            query = ""
-            while True:
-                try:
-                    query = next(it)
-                except StopIteration:
-                    last_query = query
-                    break
-                coordi = geolocation.google_map_coordinate(query + " " + area_pinpointed)
-                if len(coordi) > 0:
-                    last_query = query
-                    break
-
-            if len(coordi) == 0:
-                count_fail += 1
-                logger.war("--fail... org: %s, query: %s, area: %s" % (org, last_query, area_pinpointed))
-
-            elif len(coordi) > 0:
-                dis_pre = geolocation.geodistance(coordi[0]["lng"], coordi[0]["lat"], float(lm["longitude"]),
-                                                  float(lm["latitude"]))
-                logger.war("last_query: %s, res_num: %d, pre_dis: %s" % (last_query, len(coordi), dis_pre))
-                error_dis += dis_pre
-                if len(coordi) > 1:
-                    count_mul += 1
-            count_us += 1
-    logger.war("suc: %d, fail: %d, mul: %d, mean_error_dis: %s" % (count_us - count_fail, count_fail, count_mul, error_dis / (count_us - count_fail)))
-
+    find_pages_with_copyright("D:\\data_preprocessed/http_80_us.json", "D:\\data_preprocessed/pages_with_copyright_us.json", 23794)# 2121
     # pass
     # img_orc_baidu("../resources/kaist-logo.png")
     # res = ner_copyright("Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA")

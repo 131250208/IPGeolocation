@@ -5,6 +5,7 @@ import re
 from LandmarksCollector import settings
 from Tools import geolocation as geo
 
+
 def is_valid(line):
     '''
     check:
@@ -16,6 +17,7 @@ def is_valid(line):
     :param line: a line of bytes read from file
     :return: boolen
     '''
+
     line = line.decode("utf-8")
 
     if line.strip("\n") == "":
@@ -161,5 +163,6 @@ def filter_transaction_us(infilepath, outfilepath, index):
 
 
 if __name__ == "__main__":
-    infilepath = "E:\\HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json"
-    filter_transaction_us(infilepath, "E:\\data_preprocessed/http_80_us.json", 0)
+    pass
+    infilepath = "D:\\HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json"
+    filter_transaction_us(infilepath, "D:\\data_preprocessed/http_80_us_0.2.json", 7420876)# 838 saved

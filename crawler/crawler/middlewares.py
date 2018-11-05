@@ -7,7 +7,6 @@
 
 from scrapy import signals
 
-
 class WikipediacrawlerSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
@@ -50,7 +49,10 @@ class WikipediacrawlerSpiderMiddleware(object):
 
         # Must return only requests (not items).
         for r in start_requests:
+            r.meta["proxy"] = "http://127.0.0.1:1080"
+            spider.logger.info("设置了代理： http://127.0.0.1:1080")
             yield r
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+

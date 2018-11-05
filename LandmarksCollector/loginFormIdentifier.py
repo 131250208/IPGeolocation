@@ -3,6 +3,7 @@ from LandmarksCollector.sampleReader import is_valid, get_brief_one
 import re
 from LandmarksCollector import settings
 import logging
+import json
 
 def exist_loginform(html):
     soup = BeautifulSoup(html, "lxml")
@@ -22,7 +23,14 @@ def exist_loginform(html):
 
 def exist_keyword(list_keyword, text):
     for key in list_keyword:
-        if key in text.lower():
+        if key in text:
+            return True
+    return False
+
+
+def exist_keyword_ignore_case(list_keyword, text):
+    for key in list_keyword:
+        if key.lower() in text.lower():
             return True
     return False
 
@@ -36,30 +44,39 @@ def identification(in_file_path, out_file_path, index):
     :return:
     '''
     f_inp = open(in_file_path, "r", encoding="utf-8")
+    f_out = open(out_file_path, "a", encoding="utf-8")
 
     ind = 0
-    for sample in f_inp:
-        if ind < index:
+    for line in f_inp:
+        if ind < index and line.strip() == "\n":
             print("-----------------ind: %d pass--------------------" % (ind))
             ind += 1
             continue
+        try:
+            pageInfo = json.loads(line)
+        except Exception:
+            continue
 
-        if not is_valid(sample): continue
-
-        pageInfo = get_brief_one(sample)
         html = pageInfo["html"]
-        if exist_loginform(html) and exist_keyword(settings.KEYWORD_MONITOR, pageInfo["title"]):
-            filename = re.sub("[\\x21-\\x2c\\x2e\\x2f\\x3a-\\x40\\\x5b-\\x60\\x7b-\\x7e]+", "_", pageInfo["title"])
-            filename = re.sub("[\n\r\t]", "", filename)
-            filename = filename.strip()
+        if exist_loginform(html) and \
+                (exist_keyword_ignore_case(settings.KEYWORD_MAN_SYS, pageInfo["title"]) or
+                     exist_keyword(settings.KEYWORD_MAN_SYS_UP, pageInfo["title"])) and \
+                not exist_keyword_ignore_case(settings.BlACK_LIST_INVALID_PAGE, pageInfo["title"]) and \
+                not exist_keyword_ignore_case(settings.BlACK_LIST_DEVICE_CONF_MAN, pageInfo["title"]):
 
-            try:
-                f_out = open("%s/%s.html" % (out_file_path, filename), "w", encoding="utf-8")
-            except Exception as e:
-                continue
-            f_out.write(pageInfo["html"])
-            f_out.close()
+            f_out.write("%s\n" % json.dumps(pageInfo))
             logging.warning("-----------------ind: %d identification: %s--------------------" % (ind, True))
         else:
             print("-----------------ind: %d identification: %s--------------------" % (ind, False))
         ind += 1
+
+    f_out.close()
+
+if __name__ == "__main__":
+    identification("D:\\data_preprocessed/http_80_us.json", "D:\\data_preprocessed/management_sys_us.json", 0)
+    # f = open("D:\\data_preprocessed/management_sys_us.json", "r", encoding="utf-8")
+    # count = 0
+    # for line in f:
+    #     if line.strip() != "\n":
+    #         count += 1
+    # print(count)

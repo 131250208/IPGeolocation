@@ -5,11 +5,9 @@ import re
 from bs4 import BeautifulSoup
 import socket
 import pyprind
-from Tools import geolocation, mylogger
+from Tools import geolocation, mylogger, online_search
 from LandmarksCollector import settings, org_extracter as oi
-
 logger = mylogger.Logger("../Log/landmarks.py.log")
-
 
 def crawl_planetlab():
     '''
@@ -154,9 +152,11 @@ def add_html(landmarks):
     return landmarks
 
 
-def find_ip(landmarks_planetlab):
+def find_ip(landmarks):
     count_fail = 0
-    for lm in pyprind.prog_bar(landmarks_planetlab):
+    for lm in pyprind.prog_bar(landmarks):
+        if "ip" in lm or "url" not in lm:
+            continue
         url = lm["url"]
 
         name = re.sub("http://", "", url)
@@ -165,20 +165,16 @@ def find_ip(landmarks_planetlab):
         if "/" in name:
             name = name.split("/")[0]
 
-        map_err2cor = {"minarlab.mis.npust.edu.": "minarlab.mis.npust.edu.tw",
-                       "www.xjtu.edu.cn:8080": "www.xjtu.edu.cn",
-                       }
-        if name in map_err2cor:
-            name = map_err2cor[name]
-
         try:
             ip = socket.gethostbyname(name)
             lm["ip"] = ip
+            # print(("getaddrinfo succeed, domain_name: %s, org: %s" % (name, lm["university_name"])))
         except Exception as e:
             count_fail += 1
-            print("getaddrinfo failed, failname: %s, org: %s" % (name, lm["organization"]))
+            # print("getaddrinfo failed, domain_name: %s, org: %s" % (name, lm["university_name"]))
             continue
-    return landmarks_planetlab
+    print("fail_num: %d" % count_fail)
+    return landmarks
 
 
 def geocode(landmarks_planetlab):
@@ -233,84 +229,146 @@ def get_all_lm():
     return map_ip_coordinate
 
 
-def get_coordination_by_page(html, url, area):
+def get_coordination_by_page(html, url, coarse_grained_region):
+    '''
+    construct query string from web page and coarse_grained_region
+    :param html:
+    :param url:
+    :param coarse_grained_region:
+    :return: query string
+    '''
     coordi = []
     it = oi.query_str(html, url)
 
     last_query = ""
+    query = ""
     while True:
         try:
             query = next(it)
-            last_query = query
         except StopIteration:
+            last_query = query
             break
-        coordi = geolocation.google_map_coordinate(query + " " + area)
-        logger.info("query: %s" % query)
+
+        coordi = geolocation.google_map_coordinate(query + " " + coarse_grained_region)
+        # logger.info("query: %s" % query)
         if len(coordi) > 0:
             last_query = query
             break
-    logger.war("last_query: %s" % last_query)
+
+    # logger.war("last_query: %s" % last_query)
     if len(coordi) > 0:
-        return coordi[0]
-    return None
+        return coordi[0], last_query
+    return None, last_query
+
+
+def search_lm_from_web(in_file_path):
+    file_inp = open(in_file_path, "r")
+    list_page_info = json.load(file_inp)
+    count_nocity = 0
+    for page_info in list_page_info:
+        ip = page_info["ip"]
+        ipstack = geolocation.ip_geolocation_ipstack(ip)
+        if ipstack["city"] == "":
+            count_nocity += 1
+            continue
+
+        dis_max = 10000
+        org_whois = online_search.get_orginfo_by_whois_rws(ip)
+
+        coordi_fr_whois = geolocation.google_map_coordinate(org_whois)
+        coordi_fr_whois = coordi_fr_whois[0] if len(coordi_fr_whois) > 0 else None
+        coordi_fr_page, last_query = get_coordination_by_page(page_info["html"], page_info["url"],
+                                                              ipstack["city"])
+
+        lng_ipip = float(ipstack["longitude"])
+        lat_ipip = float(ipstack["latitude"])
+
+        dis_whois2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_whois["lng"], coordi_fr_whois["lat"]) if coordi_fr_whois is not None else -1
+        dis_pageinfo2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None else -1
+        dis_page2whois = geolocation.geodistance(coordi_fr_whois["lng"], coordi_fr_whois["lat"], coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None else -1
+        logger.war("org_whois: %s, dis_whois2ipip: %d, last_query: %s, dis_pageinfo2ipip: %d, dis_pageinfo2whois: %d" % (org_whois, dis_whois2ipip, last_query, dis_pageinfo2ipip, dis_page2whois))
+    print("nocity: %d" % count_nocity)
+
+def show_results_coordinating_on_planet_lab():
+    landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
+
+    count_us = 0
+    count_fail = 0
+    count_mul = 0
+    error_dis = 0
+    count = 0
+    count_suc = 0
+    invalid = []
+    for lm in landmarks:
+        #     # ------------------------------------------------------
+        if "geo_lnglat" not in lm:
+            continue
+        country = lm["geo_lnglat"]["country"]
+        if country == "United States" and "ip" in lm and "html" in lm:
+
+            # if lm["organization"] in settings.INVALID_LANDMARKS:
+            #     continue
+            if settings.INVALID_LANDMARKS_KEYWORD[0] in lm["organization"] or \
+                            settings.INVALID_LANDMARKS_KEYWORD[1] in lm["organization"]:
+                # print(lm["organization"])
+                # print(lm["url"])
+                continue
+
+            area_pinpointed = lm["geo_lnglat"]["pinpointed_area"]
+
+            org = lm["organization"]
+            coordi = geolocation.google_map_coordinate(org + " " + area_pinpointed)
+            if len(coordi) == 0:
+                dis_ground = -1
+            else:
+                dis_ground = geolocation.geodistance(coordi[0]["lng"], coordi[0]["lat"], float(lm["longitude"]),
+                                                     float(lm["latitude"]))
+            logger.war("org: %s, res_num:%d, ground_truth_dis: %s" % (org, len(coordi), dis_ground))
+            if dis_ground > 3000:
+                count_fail += 1
+                invalid.append(lm["organization"])
+            else:
+                count_suc += 1
+    print("%s, %s" % (count_suc, count_fail))
+    print(invalid)
+         # -----------------------------------------------------------------------------------
+    #         coordi = []
+    #         last_query = ""
+    #         it = query_str(lm["html"], lm["url"])
+    #
+    #         query = ""
+    #         while True:
+    #             try:
+    #                 query = next(it)
+    #             except StopIteration:
+    #                 last_query = query
+    #                 break
+    #             coordi = geolocation.google_map_coordinate(query + " " + area_pinpointed)
+    #             if len(coordi) > 0:
+    #                 last_query = query
+    #                 break
+    #
+    #         if len(coordi) == 0:
+    #             count_fail += 1
+    #             logger.war("--fail... org: %s, query: %s, area: %s" % (org, last_query, area_pinpointed))
+    #
+    #         elif len(coordi) > 0:
+    #             dis_pre = geolocation.geodistance(coordi[0]["lng"], coordi[0]["lat"], float(lm["longitude"]),
+    #                                               float(lm["latitude"]))
+    #             logger.war("last_query: %s, res_num: %d, pre_dis: %s" % (last_query, len(coordi), dis_pre))
+    #             error_dis += dis_pre
+    #             if len(coordi) > 1:
+    #                 count_mul += 1
+    #         count_us += 1
+    # logger.war("suc: %d, fail: %d, mul: %d, mean_error_dis: %s" % (count_us - count_fail, count_fail, count_mul, error_dis / (count_us - count_fail)))
 
 
 if __name__ == "__main__":
-    file_inp = open("E:\\data_preprocessed/http_80_us.json", "r")
-    for line in file_inp:
-        if line != "\n":
-            json_pageinfo = json.loads(line)
-            ip = json_pageinfo["ip"]
-            ipip = geolocation.ip_geolocation_ipip(ip)
-            # if ipip["isp"] != "":
-            #     continue
-            # ipinfo = geolocation.ip_geolocation_ipinfo(ip)
-            lng_ipip = float(ipip["longitude"])
-            lat_ipip = float(ipip["latitude"])
-            # lng_ipinfo = float(ipinfo["longitude"])
-            # lat_ipinfo = float(ipinfo["latitude"])
-            dis_max = 10000
-            # dis0 = geolocation.geodistance(lng_ipip, lat_ipip, lng_ipinfo, lat_ipinfo)
-            if ipip["isp"] == "":
-                # print("dis0: %d, page: %s" % (dis0, json_pageinfo))
-                coordi_by_page = get_coordination_by_page(json_pageinfo["html"], json_pageinfo["url"], ipip["city"])
-
-                if coordi_by_page is not None:
-                    dis1 = geolocation.geodistance(lng_ipip, lat_ipip, coordi_by_page["lng"], coordi_by_page["lat"])
-                    # dis2 = geolocation.geodistance(lng_ipinfo, lat_ipinfo, coordi_by_page["lng"], coordi_by_page["lat"])
-                    # print("dis1: %d, dis2: %d" % (dis1, dis2))
-                    print("dis1: %s" % dis1)
-                    # if dis1 < dis_max and dis2 < dis_max:
-                    if dis1 < dis_max:
-                        logger.war("dis: %s, page: %s" % (dis1, json_pageinfo))
+    search_lm_from_web("../resources/universities_us_0.9.json")
+    pass
 
 
-    # landmarks = find_ip(landmarks)
-    # json.dump(landmarks, open("../resources/landmarks_planetlab_0.1.json", "w"))
 
 
-    # count = 0
-    # for lm in landmarks:
-    #     if lm["country"] == "United States":
-    #         ipip = geolocation.ip_geolocation_ipip(lm["ip"])
-    #         if ipip["isp"] not in settings.KEYWORD_CLOUD_PROVIDER:
-    #             list_t, list_logo, list_cpy = [], [], []
-    #
-    #             if "html" in lm:
-    #                 html = lm["html"]
-    #                 url = lm["url"]
-    #                 count += 1
-    #                 query_str = oi.query_str(html, url)
-    #                 lm["query_str"] = query_str
-    #
-    #                 logger.debug("ip: %s, url: %s, org: %s, query_str: %s" % (
-    #                     lm["ip"], lm["url"], lm["organization"], query_str))
-    #
-    # print(count)
-    # json.dump(landmarks, open("../resources/landmarks_planetlab_us.json", "w"))
 
-    # landmarks = add_locinfo(landmarks)
-    # json.dump(landmarks, open("../resources/landmarks_planetlab_0.3.json", "w"))
-    # 0.2 geocoding
-    # 0.3 ipinfo
-    # 0.4 location
+
