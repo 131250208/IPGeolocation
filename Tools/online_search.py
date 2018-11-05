@@ -117,28 +117,58 @@ def ripe_db_search(ip):
 
 def arin_whois_rws_search(ip):
     api = "https://whois.arin.net/rest/ip/%s" % ip
-    res = rt.try_best_request_get(api, 5, "ripe_db_search")
+    res = rt.try_best_request_get(api, 5, "arin_whois_rws_search", "abroad")
     if res is None or res.status_code != 200:
         return ""
 
     soup = BeautifulSoup(res.text, "lxml")
     handle = soup.select_one("handle").text
 
-    api2 = "https://whois.arin.net/rest/net/%s/pft?s=%s" % (handle, ip)
-    res = rt.try_best_request_get(api2, 5, "ripe_db_search")
+    api2 = "https://whois.arin.net/rest/net/%s/pft.json?s=%s" % (handle, ip)
+    res = rt.try_best_request_get(api2, 5, "arin_whois_rws_search", "abroad")
     if res is None or res.status_code != 200:
         return ""
 
-    soup = BeautifulSoup(res.text, "lxml")
-    city = soup.select_one("org > city").text
-    name = soup.select_one("org > name").text
+    # soup = BeautifulSoup(res.text, "lxml")
+    #
+    # city = soup.select_one("org > city")
+    # if city is None:
+    #     city = soup.select_one("customer > city")
+    #
+    # name = soup.select_one("org > name")
+    # if name is None:
+    #     name = soup.select_one("customer > name")
+
+    # try:
+    #     whois_info = name.text + ", " + city.text
+    # except:
+    #     pass
+    city = ""
+    name = ""
+    json_whois = json.loads(res.text)["ns4:pft"]
+    if "org" in json_whois:
+        org = json_whois["org"]
+        city = org["city"]["$"]
+        name = org["name"]["$"]
+    if "customer" in json_whois:
+        customer = json_whois["customer"]
+        city = customer["city"]["$"]
+        name = customer["name"]["$"]
+
     return name + ", " + city
 
 
 def get_orginfo_by_whois_rws(ip):
     arin = arin_whois_rws_search(ip)
+    # Latin American and Caribbean IP address Regional Registry, Montevideo # https://rdap.registro.br/ip/201.54.140.10
+    # Asia Pacific Network Information Centre, South Brisbane # http://wq.apnic.net/query?searchtext=111.204.219.195
+    #
     if "RIPE Network Coordination Centre" in arin:
         return ripe_db_search(ip)
+
+    reduntant = ["Inc.", "LLC", ".com"]
+    pattern = "(%s)" % "|".join(reduntant)
+    arin = re.sub(pattern, "", arin, re.I)
     return arin
 
 
@@ -149,7 +179,7 @@ if __name__ == '__main__':
     # res = geolocation.google_map_places_search("VPISU")
     # print(res)
 
-    whois = get_orginfo_by_whois_rws("23.185.0.1")
+    whois = arin_whois_rws_search("138.123.240.163")
     print(whois)
     # ripe = ripe_db_search("129.16.71.10")
     # coord = geolocation.google_map_coordinate(whois)

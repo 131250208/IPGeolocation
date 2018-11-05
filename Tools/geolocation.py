@@ -9,6 +9,7 @@ import requests
 from Tools import mylogger
 logger = mylogger.Logger("../Log/geolocation.py.log")
 import geoip2.database
+from Tools.IPLocate import IP
 
 def quote(queryStr):
     try:
@@ -129,12 +130,12 @@ def variance_coordinates(coordinates):
     dis = 0
     for co in coordinates:
         dis += geodistance(co["lng"], co["lat"], exp_lng, exp_lat)
-    return dis
+    return dis / len(coordinates)
 
 
+reader_ipplus = geoip2.database.Reader('../resources/GeoLite2-City.mmdb')
 def ip_geolocation_geolite2(ip):
-    reader = geoip2.database.Reader('../resources/GeoLite2-City.mmdb')
-    res = reader.city(ip)
+    res = reader_ipplus.city(ip)
     return {
         "country": res.country.name,
         "region": res.subdivisions.most_specific.name,
@@ -150,10 +151,10 @@ def ip_geolocation_ipstack(ip): # not free, 10000/month
     json_res = json.loads(res.text)
     return {
         "country": json_res["country_name"] if json_res["country_name"] is not None else "",
-        "region": json_res["region_name"] if json_res["country_name"] is not None else "",
-        "city": json_res["city"] if json_res["country_name"] is not None else "",
-        "longitude": json_res["longitude"] if json_res["country_name"] is not None else "",
-        "latitude": json_res["latitude"] if json_res["country_name"] is not None else "",
+        "region": json_res["region_name"] if json_res["region_name"] is not None else "",
+        "city": json_res["city"] if json_res["city"] is not None else "",
+        "longitude": json_res["longitude"] if json_res["longitude"] is not None else "",
+        "latitude": json_res["latitude"] if json_res["latitude"] is not None else "",
     }
 
 
@@ -177,12 +178,16 @@ def ip_geolocation_ipinfo(ip): # not free, 1000/day
     api = "http://ipinfo.io/%s/geo" % ip
     res = requests.get(api, headers=rt.get_random_headers(), timeout=10)
     json_res = json.loads(res.text)
+    if json_res["loc"] == "":
+        json_res["longitude"] = None
+        json_res["latitude"] = None
     loc = json_res["loc"].split(",")
-    json_res["longitude"] = loc[1]
-    json_res["latitude"] = loc[0]
+    json_res["longitude"] = float(loc[1])
+    json_res["latitude"] = float(loc[0])
     return json_res
 
 
+reader_ipip = datx.City(settings.IP_INFO_IPIP_PATH)
 def ip_geolocation_ipip(ip):
     '''
     :param ip:
@@ -210,8 +215,8 @@ def ip_geolocation_ipip(ip):
         "ANYCAST" // anycast
         ]
     '''
-    c = datx.City(settings.IP_INFO_IPIP_PATH)
-    res = c.find(ip)
+
+    res = reader_ipip.find(ip)
 
     return {
         "country": res[0] if len(res) >= 1 else "",
@@ -219,8 +224,8 @@ def ip_geolocation_ipip(ip):
         "city": res[2] if len(res) >= 3 else "",
         "owner": res[3] if len(res) >= 4 else "",
         "isp": res[4] if len(res) >= 5 else "",
-        "latitude": res[5] if len(res) >= 6 else "",
-        "longitude": res[6] if len(res) >= 7 else "",
+        "latitude": float(res[5]) if len(res) >= 6 and res[5] != "" else None,
+        "longitude": float(res[6]) if len(res) >= 7 and res[6] != "" else None,
         "timezone": res[7] if len(res) >= 8 else "",
         "utc_offset": res[8] if len(res) >= 9 else "",
         "china_admin_code": res[9] if len(res) >= 10 else "",
@@ -237,90 +242,35 @@ def ip_geolocation_ipip(ip):
     }
 
 
+def ip_geolocation_ipplus360(ip):
+    test = IP()
+    test.load_dat("../resources/IP_trial_2018M11_single_WGS84.dat")
+    result = test.locate_ip(ip)
+    return {
+        "continent": result[2],
+        "country": result[5],
+        "region": result[6],
+        "city": result[7],
+        "longitude": float(result[9]) if result[9] != "" else None,
+        "latitude": float(result[10]) if result[10] != "" else None,
+    }
+
+
 if __name__ == "__main__":
-    print(ip_geolocation_ipinfo("128.175.19.82"))
-    # print(dis_btw_2p("Computer Lab of Paris 6 (Lip6)", "Universite Pierre et Marie Curie"))
-    # Mercer County NEC LABORATORIES AMERICA, INC. NEC Relentless passion for innovation, Mercer County
-    # print(dis_btw_2p("NEC LABORATORIES AMERICA NEC , Mercer County",
-    #                  "NEC Laboratories Mercer County"))
-    # print(dis_btw_2p("Palo Alto Research Center Incorporated Santa Clara County", "Palo Alto Research Center Santa Clara County"))
+    ip = "40.71.16.23"
+    print(ip_geolocation_ipplus360(ip)) # free trial, one month expire, low precision
+    print(ip_geolocation_ipinfo(ip)) # 1000/day
+    print(ip_geolocation_ipstack(ip)) # 10000/mon
+    print(ip_geolocation_ipip(ip))
+    print(ip_geolocation_geolite2(ip))# free, low precision
+
+    # uniform the data type of coordinate
+
+    # print(google_map_places_search("Microsoft Boydton"))# Redmond, Boydton
+    # print(google_map_places_search("Microsoft Virginia Washington"))
 
 
-    # import socket
-    # import struct
-    # import pyprind
-    #
-    # list_ip_field = json.load(open("../resources/ip_fields_us.json", "r"))
-    # ipgeo_valid = []
-    # for ipf in pyprind.prog_bar(list_ip_field):
-    #     start = ipf["start"]
-    #     end = ipf["end"]
-    #     int_start = socket.ntohl(struct.unpack("I", socket.inet_aton(str(start)))[0])
-    #     int_end = socket.ntohl(struct.unpack("I", socket.inet_aton(str(end)))[0])
-    #     for int_ip in range(int_start, int_end + 1):
-    #         ip = socket.inet_ntoa(struct.pack('I', socket.htonl(int_ip)))
-    #         ipip = ip_geolocation_ipip(ip)
-    #         if ipip["longitude"] != "" and ipip["latitude"] != "":
-    #             ipgeo_valid.append(ipip)
-    # json.dump(ipgeo_valid, open("../resources/ipgeo_ipip_us.json", "w"))
 
-    # import pyprind
-    # list_uni = json.load(open("../resources/universities_us_0.9.json", "r"))
-    # count = 0
-    #
-    # for uni in pyprind.prog_bar(list_uni):
-    #     if "coordinate_org" in uni and "ip" in uni:
-    #         ip = uni["ip"]
-    #         co = uni["coordinate_org"]
-    #         ipip = ip_geolocation_ipip(ip)
-    #         if ipip["longitude"] != "":
-    #             dis = geodistance(float(ipip["longitude"]), float(ipip["latitude"]), co["lng"], co["lat"])
-    #             if dis < 10000:
-    #                 print(dis)
-    #                 count += 1
-    #             else:
-    #                 print("greater than 10000, isp: %s" % ipip["isp"])
-    #         else:
-    #             print("no (lng, lat), isp: %s " % ipip["isp"])
-    #
-    # print(count)
-    # for uni in pyprind.prog_bar(list_uni):
-    #     if "coordinate_org" not in uni:
-    #         count_fail += 1
-    #         coordinates = google_map_coordinate(uni["state_name"] + " " + uni["university_name"])
-    #         print(variance_coordinates(coordinates))
-    #         # if len(coordinates) == 0:
-    #         #     continue
-    #         # elif len(coordinates) == 1:
-    #         #     uni["coordinate_org"] = coordinates[0]
-    #         # else:
-    #         #     if variance_coordinates(coordinates) < 1000:
-    #         #         uni["coordinate_org"] = coordinates[0]
-    # # json.dump(list_uni, open("../resources/universities_us_0.9.json", "w"))
 
-    # count = 0
-    #
-
-    # for lm in landmarks:
-    #     ip = lm["ip"]
-    #     ipinfo = ip_geolocation_ipip(ip)
-    #     country = ipinfo[0]
-    #     ISP = ipinfo[4]
-    #     if ISP not in cloud_providers:
-    #         print(ipinfo)
-    #         count += 1
-    #         lon_ipinfo = ipinfo[6]
-    #         lat_ipinfo = ipinfo[5]
-    #         lon_planetlab = lm["longitude"]
-    #         lat_planetlab = lm["latitude"]
-    #         print("url: %s, ISP: %s, country_ipip: %s, country_ipinfo: %s, coordination_ipip: (%s, %s), coordination_planetlab: (%s, %s)" % (lm["url"], ISP, country, lm["country"], lon_ipinfo, lat_ipinfo, lm["longitude"], lm["latitude"]))
-    #         if lon_ipinfo != "" and lat_ipinfo != "" and lon_planetlab != "" and lat_planetlab != "":
-    #             dis = geodistance(float(lon_ipinfo), float(lat_ipinfo), float(lon_planetlab), float(lat_planetlab))
-    #             print(dis / 1000)
-    #
-    # print(count)
-    # candidates = google_map_coordinate("百度 US")
-    # print(candidates)
-    # print(geodistance(-88.5580, 47.1158, -88.5463, 47.1181))
 
 

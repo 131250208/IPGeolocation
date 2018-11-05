@@ -12,6 +12,7 @@ import datetime
 import math
 import pyprind
 from urllib import parse
+import numpy as np
 
 def init_chrome():
     chrome_options = webdriver.ChromeOptions()
@@ -68,8 +69,7 @@ def extract_trace_route_info_fr_text(res_trace_route_text):
         "route_info": res_trace_route
     }
 
-        
-    
+
 def trace_route_query(chrome, hostname):
     input_hostname = wait_to_get_element(chrome, "input#hostname")
     input_hostname.clear()
@@ -177,17 +177,18 @@ def delete_measurement_by_tag(tag):
     print(res.text)
 
 
-def measure_by_ripe_hugenum_oneoff(list_target, list_probes, start, tags):
+def measure_by_ripe_hugenum_oneoff_traceroute(list_target, list_probes, start, tags, des):
+    list_target = [ip for ip in list_target if ip not in list_probes]
     measurement_chunks = chunks(list_target, 100)
 
     for ind, mc in enumerate(measurement_chunks):
         start_time = start + 1800.0 * ind
-        res = measure_by_ripe_oneoff(mc, list_probes, start_time, tags)
+        res = measure_by_ripe_oneoff_traceroute(mc, list_probes, start_time, tags, des)
         print(res.status_code)
         print(res.text)
 
 
-def measure_by_ripe_hugenum_scheduled(list_target, list_probes, start, days, interval, tags):
+def measure_by_ripe_hugenum_scheduled_traceroute(list_target, list_probes, start, days, interval, tags, des):
     '''
     split a huge measurement to small chunks
     :param list_target:
@@ -198,6 +199,7 @@ def measure_by_ripe_hugenum_scheduled(list_target, list_probes, start, days, int
     :param tag:
     :return:
     '''
+    list_target = [ip for ip in list_target if ip not in list_probes]
     days2stamp = 86400.0 * days
     measurement_chunks = chunks(list_target, 100)
     size = len(measurement_chunks)
@@ -207,17 +209,60 @@ def measure_by_ripe_hugenum_scheduled(list_target, list_probes, start, days, int
         interval_ = interval + 0.0
         start_time = start + math.ceil(interval_ / size) * ind
         stop_time = start_time + days2stamp
-        res = measure_by_ripe_scheduled(mc, list_probes, start_time, stop_time, interval, tags)
+        res = measure_by_ripe_scheduled_traceroute(mc, list_probes, start_time, stop_time, interval, tags, des)
         print(res.status_code)
         print(res.text)
 
 
-def measure_by_ripe_oneoff(list_target, list_probes, start_time, tags):
+def measure_by_ripe_hugenum_oneoff_ping(list_target, list_probes, start, tags, des):
+    list_target = [ip for ip in list_target if ip not in list_probes]
+    measurement_chunks = chunks(list_target, 100)
+
+    for ind, mc in enumerate(measurement_chunks):
+        start_time = start + 300 + 1200.0 * ind
+        res = measure_by_ripe_oneoff_ping(mc, list_probes, start_time, tags, des)
+        print(res.status_code)
+        print(res.text)
+
+
+def measure_by_ripe_oneoff_ping(list_target, list_probes, start_time, tags, des):
     list_measurement = []
     for t in list_target:
         list_measurement.append({
             "is_public ": True,
-            "description": "Traceroute measurement to %s" % t,
+            "description": "Ping measurement to %s, %s" % (t, des),
+            "af": 4,
+            "type": "ping",
+            "packets": 4,
+            "packet_interval": 2,
+            "size": 48,
+            "target": t,
+            "tags": tags,
+            "include_probe_id": False,
+        })
+    api = "https://atlas.ripe.net:443/api/v2/measurements/ping?key=%s" % settings.RIPE_KEY_O
+    data = {
+        "bill_to": "wychengpublic@163.com",
+        "is_oneoff": True,
+        "start_time": start_time,
+        "definitions": list_measurement,
+        "probes": [{
+            "requested": len(list_probes),
+            "type": "probes",
+            "value": ",".join(list_probes),
+        }]
+    }
+
+    res = requests.post(api, data=json.dumps(data), headers=rt.get_random_headers())
+    return res
+
+
+def measure_by_ripe_oneoff_traceroute(list_target, list_probes, start_time, tags, des):
+    list_measurement = []
+    for t in list_target:
+        list_measurement.append({
+            "is_public ": True,
+            "description": "Traceroute measurement to %s, %s" % (t, des),
             "af": 4,
             "type": "traceroute",
             "packets": 4,
@@ -250,7 +295,7 @@ def measure_by_ripe_oneoff(list_target, list_probes, start_time, tags):
     return res
 
 
-def measure_by_ripe_scheduled(list_target, list_probes, start_time, stop_time, interval, tags):
+def measure_by_ripe_scheduled_traceroute(list_target, list_probes, start_time, stop_time, interval, tags, des):
     '''
     start measurements on targets
     :param list_target:
@@ -260,7 +305,7 @@ def measure_by_ripe_scheduled(list_target, list_probes, start_time, stop_time, i
     for t in list_target:
         list_measurement.append({
             "is_public ": True,
-            "description": "Traceroute measurement to %s" % t,
+            "description": "Traceroute measurement to %s, %s" % (t, des),
             "af": 4,
             "type": "traceroute",
             "packets": 4,
@@ -306,7 +351,7 @@ def get_measurement_res_by_tag(tag):
         measurement = json.loads(res.text)
         results = measurement["results"]
 
-        for dst in results:
+        for dst in pyprind.prog_bar(results):
             target = dst["target"]
             res_dst = rt.try_best_request_get(dst["result"], 5, get_measurement_res_by_tag)
             measurement_per_dst = json.loads(res_dst.text)
@@ -321,8 +366,13 @@ def get_measurement_res_by_tag(tag):
                     rtts = []
                     addr_rt = None
                     for pk in pk_hop:
-                        rtt = pk["rtt"] if "x" not in pk else -1
-                        rtts.append(rtt)
+                        if "x" in pk:
+                            rtt = -1
+                            rtts.append(rtt)
+                        if "rtt" in pk:
+                            rtt = pk["rtt"]
+                            rtts.append(rtt)
+
                         if "from" in pk:
                             addr_rt = pk["from"]
 
@@ -343,16 +393,61 @@ def get_measurement_res_by_tag(tag):
     return dict_target2mfrprbs
 
 
-if __name__ == "__main__":
-    res = get_measurement_res_by_tag("ipg-2018110101")
-    print(res)
-    # import pytz
-    # tz = pytz.timezone('America/New_York')
-    # start_time = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')
+def get_vect(list_rtt):
+    list_valid_rtt = []
+    loss = 0
 
-    # map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
-    # list_target = [k for k in map_ip_coordination.keys() if k is not None]
-    # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    # measure_by_ripe_hugenum_oneoff(list_target, probes, start_time, ["ipg-2018110101",])
+    for rtt in list_rtt:
+        if rtt != -1:
+            list_valid_rtt.append(rtt)
+        else:
+            loss += 1
+
+    if loss == len(list_rtt):
+        return [-1, -1, -1, -1, -1]
+
+    array = np.array(list_valid_rtt)
+    best = array.min()
+    worst = array.max()
+    avg = array.mean()
+    stdev = array.std()
+
+    return [loss, best, worst, avg, stdev]
+
+
+def measure_process(dict_target2mfrprbs):
+    for target_ip in dict_target2mfrprbs.keys():
+        dict_prb2trac = dict_target2mfrprbs[target_ip]
+        for pb_ip in dict_prb2trac.keys():
+            list_hops = dict_prb2trac[pb_ip]
+            # delay_total = 0
+            for hp in list_hops:
+                vec = get_vect(hp["rtts"])
+                hp["vec"] = vec
+                # delay_total += vec[1] # add the best
+            # dict_prb2trac[pb_ip] = {
+            #     "list_hops": list_hops,
+            #     "delay_total": delay_total
+            # }
+    return dict_target2mfrprbs
+
+if __name__ == "__main__":
+    # dict_measurement = get_measurement_res_by_tag("ipg-2018110101")
+    # print(json.dumps(dict_measurement, indent=2))
+    # json.dump(dict_measurement, open("../resources/measurement_ipg-2018110101.json", "w"))
+
+    # dict = json.load(open("../resources/measurement_ipg-2018110101.json", "r"))
+    # dict = measure_process(dict)
+    # json.dump(dict, open("../resources/measurement_ipg-2018110101_processed.json", "w"))
+
+    import pytz
+    tz = pytz.timezone('America/New_York')
+    start_time = datetime.datetime.now(tz).timestamp() + 120
+
+    map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    list_target = [k for k in map_ip_coordination.keys() if k is not None]
+    probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
+    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110502", ],
+                                        "measured by 6 probes, would be used to do contrast experiment")
 
 

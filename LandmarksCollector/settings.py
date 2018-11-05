@@ -22,7 +22,7 @@ KEYWORD_CLOUD_PROVIDER = ["amazon.com", "cloudflare.com", "cloud.google.com", "l
                 ]
 
 REDUNDANT_LIST_QUERY = ["logo", "footer", "header", "body", "foot", "head", "brand", "smaller", "bigger", "text",
-                       "home", "login", "system", "official site", "welcome", "main", "Inc.", "LLC"]
+                       "home", "login", "system", "official site", "welcome", "main", "Inc.", "LLC", ".com"]
 
 BlACK_LIST_LOGO = ["button", "btn", "login", "submit"]
 

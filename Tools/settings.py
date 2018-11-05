@@ -9,6 +9,7 @@ TIMEOUT = 20
 GOOGLE_API_KEY = "AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk"
 IP_INFO_IPIP_PATH = "../resources/ip_gb_en.datx"
 
+
 # measurement by keycdn
 DRIVER_WAITING_TIME = 60
 

@@ -64,6 +64,8 @@ def recover_url(url_this, path):
     :return:
     '''
     url_this = url_this[:-1] if url_this[-1] == "/" else url_this
+    if path == "":
+        return path
 
     url_split = url_this.split("//")
     path_this = url_split[1]
@@ -85,13 +87,15 @@ def recover_url(url_this, path):
         path = re.sub("\./", "", path)
         return url_this + "/" + path
 
+    if len(path) <= 2:
+        return path
+
     if path[:2] == "//":
         return url_split[0] + path
-    else:
-        # path = re.sub("\./", "", path)
-        if path[0] != "/":
-            path = "/" + path
-        return host + path
+
+    if path[0] != "/":
+        path = "/" + path
+    return host + path
 
 
 def try_best_request_post(url, data, maxtime, tag, type):

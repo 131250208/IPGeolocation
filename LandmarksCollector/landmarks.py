@@ -267,8 +267,8 @@ def search_lm_from_web(in_file_path):
     count_nocity = 0
     for page_info in list_page_info:
         ip = page_info["ip"]
-        ipstack = geolocation.ip_geolocation_ipstack(ip)
-        if ipstack["city"] == "":
+        ip_commercial_tool = geolocation.ip_geolocation_ipplus360(ip)
+        if ip_commercial_tool["city"] == "":
             count_nocity += 1
             continue
 
@@ -278,16 +278,23 @@ def search_lm_from_web(in_file_path):
         coordi_fr_whois = geolocation.google_map_coordinate(org_whois)
         coordi_fr_whois = coordi_fr_whois[0] if len(coordi_fr_whois) > 0 else None
         coordi_fr_page, last_query = get_coordination_by_page(page_info["html"], page_info["url"],
-                                                              ipstack["city"])
+                                                              ip_commercial_tool["city"])
 
-        lng_ipip = float(ipstack["longitude"])
-        lat_ipip = float(ipstack["latitude"])
+        lng_ipip = float(ip_commercial_tool["longitude"])
+        lat_ipip = float(ip_commercial_tool["latitude"])
 
         dis_whois2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_whois["lng"], coordi_fr_whois["lat"]) if coordi_fr_whois is not None else -1
         dis_pageinfo2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None else -1
-        dis_page2whois = geolocation.geodistance(coordi_fr_whois["lng"], coordi_fr_whois["lat"], coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None else -1
-        logger.war("org_whois: %s, dis_whois2ipip: %d, last_query: %s, dis_pageinfo2ipip: %d, dis_pageinfo2whois: %d" % (org_whois, dis_whois2ipip, last_query, dis_pageinfo2ipip, dis_page2whois))
+        dis_page2whois = geolocation.geodistance(coordi_fr_whois["lng"], coordi_fr_whois["lat"], coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None and coordi_fr_whois is not None else -1
+        logger.war("ip: %s, ip_commercial_tool: (%s, %s), \n"
+                   "org_whois: %s, dis_whois2ipip: %d, coordi_fr_whois %s,\n"
+                   "last_query: %s, dis_pageinfo2ipip: %d, coordi_fr_page: %s, \n"
+                   "dis_pageinfo2whois: %d" % (ip, ip_commercial_tool["longitude"], ip_commercial_tool["latitude"],
+                                               org_whois, dis_whois2ipip, coordi_fr_whois,
+                                               last_query, dis_pageinfo2ipip, coordi_fr_page,
+                                               dis_page2whois))
     print("nocity: %d" % count_nocity)
+
 
 def show_results_coordinating_on_planet_lab():
     landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
