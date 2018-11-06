@@ -81,9 +81,17 @@ def google_map_coordinate(queryStr):
     candidates = google_map_places_search(queryStr)["candidates"]
     list_location_candidates = []
     for candidate in candidates:
-        results = google_map_geocode_addr2co(candidate["formatted_address"])["results"]
+        addr = candidate["formatted_address"]
+        org_name = candidate["name"]
+        results = google_map_geocode_addr2co(addr)["results"]
         for r in results:
-            list_location_candidates.append(r["geometry"]["location"])
+            list_location_candidates.append({
+                "longitude": r["geometry"]["location"]["lng"],
+                "latitude": r["geometry"]["location"]["lat"],
+                "addr": addr,
+                "org_name": org_name,
+            })
+
     return list_location_candidates
 
 
@@ -109,28 +117,30 @@ def dis_btw_2p(query1, query2):
     r2 = google_map_coordinate(query2)
 
     if len(r1) > 0 and len(r2) > 0:
-        dis = geodistance(r1[0]["lng"], r1[0]["lat"], r2[0]["lng"], r2[0]["lat"])
+        dis = geodistance(r1[0]["longitude"], r1[0]["latitude"], r2[0]["longitude"], r2[0]["latitude"])
     else:
         dis = -1
     print("place1: %s, place2: %s" % (r1, r2))
     return dis
 
 
-def variance_coordinates(coordinates):
+def stdev_coordinates(coordinates):
     if len(coordinates) == 0:
-        return -1
+        return None
     exp_lat = 0
     exp_lng = 0
     for co in coordinates:
-        exp_lng += co["lng"]
-        exp_lat += co["lat"]
+        if co["longitude"] is None or co["latitude"] is None:
+            return None
+        exp_lng += co["longitude"]
+        exp_lat += co["latitude"]
     exp_lng = exp_lng / len(coordinates)
     exp_lat = exp_lat / len(coordinates)
 
     dis = 0
     for co in coordinates:
-        dis += geodistance(co["lng"], co["lat"], exp_lng, exp_lat)
-    return dis / len(coordinates)
+        dis += geodistance(co["longitude"], co["latitude"], exp_lng, exp_lat)
+    return dis / len(coordinates), {"longitude": exp_lng, "latitude": exp_lat}
 
 
 reader_ipplus = geoip2.database.Reader('../resources/GeoLite2-City.mmdb')
@@ -257,12 +267,10 @@ def ip_geolocation_ipplus360(ip):
 
 
 if __name__ == "__main__":
-    ip = "40.71.16.23"
-    print(ip_geolocation_ipplus360(ip)) # free trial, one month expire, low precision
-    print(ip_geolocation_ipinfo(ip)) # 1000/day
-    print(ip_geolocation_ipstack(ip)) # 10000/mon
-    print(ip_geolocation_ipip(ip))
-    print(ip_geolocation_geolite2(ip))# free, low precision
+    print(google_map_coordinate("Amazon ASHBURN"))
+    print(google_map_coordinate("Amazon Ashburn"))
+    # print(dis_btw_2p("Amazon AWS: Ashburn Data Center", "Amazon Ashburn"))
+    pass
 
     # uniform the data type of coordinate
 

@@ -238,62 +238,101 @@ def get_coordination_by_page(html, url, coarse_grained_region):
     :return: query string
     '''
     coordi = []
-    it = oi.query_str(html, url)
+    it = oi.get_org_info(html, url)
 
     last_query = ""
-    query = ""
     while True:
         try:
-            query = next(it)
+            org = next(it)
         except StopIteration:
-            last_query = query
             break
 
-        coordi = geolocation.google_map_coordinate(query + " " + coarse_grained_region)
-        # logger.info("query: %s" % query)
+        query = "%s, %s" % (org, coarse_grained_region)
+        coordi = geolocation.google_map_coordinate(query)
+        last_query = query
         if len(coordi) > 0:
-            last_query = query
             break
 
-    # logger.war("last_query: %s" % last_query)
     if len(coordi) > 0:
         return coordi[0], last_query
     return None, last_query
 
 
-def search_lm_from_web(in_file_path):
+def get_coordinate_by_commercial_tools(ip):
+    ipinfo_fr_ipplus = geolocation.ip_geolocation_ipplus360(ip)  # free trial, one month expire, low precision
+    ipinfo_fr_ipip = geolocation.ip_geolocation_ipip(ip)
+    ipinfo_fr_geolite2 = geolocation.ip_geolocation_geolite2(ip)  # free, low precision
+
+    if ipinfo_fr_geolite2["city"] == ipinfo_fr_ipip["city"] and \
+        ipinfo_fr_ipip["city"] == ipinfo_fr_ipplus["city"] and ipinfo_fr_ipip["city"] != "":
+        coordinates = [{"longitude": ipinfo_fr_ipplus["longitude"],
+                        "latitude": ipinfo_fr_ipplus["latitude"]},
+                       {"longitude": ipinfo_fr_ipip["longitude"],
+                        "latitude": ipinfo_fr_ipip["latitude"]},
+                       {"longitude": ipinfo_fr_geolite2["longitude"],
+                        "latitude": ipinfo_fr_geolite2["latitude"]},
+                       ]
+        stdev, exp_coordinate = geolocation.stdev_coordinates(coordinates)
+        if stdev <= 3000:
+            return {"coarse_grained_region": "%s, %s, %s" %
+                                             (ipinfo_fr_ipip["country"], ipinfo_fr_ipip["region"], ipinfo_fr_ipip["city"]),
+                    "longitude": exp_coordinate["longitude"], "latitude": exp_coordinate["latitude"]}
+
+    return None
+
+
+def select_landmarks(in_file_path):
     file_inp = open(in_file_path, "r")
     list_page_info = json.load(file_inp)
-    count_nocity = 0
+    count_ambiguity = 0
     for page_info in list_page_info:
         ip = page_info["ip"]
-        ip_commercial_tool = geolocation.ip_geolocation_ipplus360(ip)
-        if ip_commercial_tool["city"] == "":
-            count_nocity += 1
+        ipinfo_fr_commercial_tools = get_coordinate_by_commercial_tools(ip)
+        if ipinfo_fr_commercial_tools is None:
+            count_ambiguity += 1
             continue
+        coarse_grained_region = ipinfo_fr_commercial_tools["coarse_grained_region"]
+        lng_com = float(ipinfo_fr_commercial_tools["longitude"])
+        lat_com = float(ipinfo_fr_commercial_tools["latitude"])
 
-        dis_max = 10000
-        org_whois = online_search.get_orginfo_by_whois_rws(ip)
+        org_whois = online_search.get_org_name_by_whois_rws(ip)
+        coordi_fr_whois = None
 
-        coordi_fr_whois = geolocation.google_map_coordinate(org_whois)
+        query_whois = None
+        if org_whois is not None:
+            query_whois = org_whois + ", " + coarse_grained_region
+            coordi_fr_whois = geolocation.google_map_coordinate(query_whois)
+
         coordi_fr_whois = coordi_fr_whois[0] if len(coordi_fr_whois) > 0 else None
-        coordi_fr_page, last_query = get_coordination_by_page(page_info["html"], page_info["url"],
-                                                              ip_commercial_tool["city"])
 
-        lng_ipip = float(ip_commercial_tool["longitude"])
-        lat_ipip = float(ip_commercial_tool["latitude"])
+        coordi_fr_page, query_page = get_coordination_by_page(page_info["html"], page_info["url"],
+                                                              coarse_grained_region)
 
-        dis_whois2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_whois["lng"], coordi_fr_whois["lat"]) if coordi_fr_whois is not None else -1
-        dis_pageinfo2ipip = geolocation.geodistance(lng_ipip, lat_ipip, coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None else -1
-        dis_page2whois = geolocation.geodistance(coordi_fr_whois["lng"], coordi_fr_whois["lat"], coordi_fr_page["lng"], coordi_fr_page["lat"]) if coordi_fr_page is not None and coordi_fr_whois is not None else -1
-        logger.war("ip: %s, ip_commercial_tool: (%s, %s), \n"
-                   "org_whois: %s, dis_whois2ipip: %d, coordi_fr_whois %s,\n"
-                   "last_query: %s, dis_pageinfo2ipip: %d, coordi_fr_page: %s, \n"
-                   "dis_pageinfo2whois: %d" % (ip, ip_commercial_tool["longitude"], ip_commercial_tool["latitude"],
-                                               org_whois, dis_whois2ipip, coordi_fr_whois,
-                                               last_query, dis_pageinfo2ipip, coordi_fr_page,
-                                               dis_page2whois))
-    print("nocity: %d" % count_nocity)
+        dis_whois2ipip = geolocation.geodistance(lng_com, lat_com, coordi_fr_whois["longitude"], coordi_fr_whois["latitude"]) if coordi_fr_whois is not None else -1
+        dis_pageinfo2ipip = geolocation.geodistance(lng_com, lat_com, coordi_fr_page["longitude"], coordi_fr_page["latitude"]) if coordi_fr_page is not None else -1
+        dis_page2whois = geolocation.geodistance(coordi_fr_whois["longitude"], coordi_fr_whois["latitude"], coordi_fr_page["longitude"], coordi_fr_page["latitude"]) if coordi_fr_page is not None and coordi_fr_whois is not None else -1
+
+        output = {
+            "ip": ip,
+            "coordinate_fr_commercial_tools": {
+                "longitude": ipinfo_fr_commercial_tools["longitude"],
+                "latitude": ipinfo_fr_commercial_tools["latitude"]
+            },
+            "whois": {
+                "query": query_whois,
+                "coordinate": coordi_fr_whois,
+                "dis_whois2com": dis_whois2ipip,
+            },
+            "page": {
+                "query": query_page,
+                "coordinate": coordi_fr_page,
+                "dis_whois2com": dis_pageinfo2ipip,
+            },
+            "dis_pageinfo2whois": dis_page2whois,
+        }
+        logger.war(json.dumps(output, indent=2))
+
+    print("count_ambiguity: %d" % count_ambiguity)
 
 
 def show_results_coordinating_on_planet_lab():
@@ -341,7 +380,7 @@ def show_results_coordinating_on_planet_lab():
          # -----------------------------------------------------------------------------------
     #         coordi = []
     #         last_query = ""
-    #         it = query_str(lm["html"], lm["url"])
+    #         it = get_org_info(lm["html"], lm["url"])
     #
     #         query = ""
     #         while True:
@@ -371,7 +410,7 @@ def show_results_coordinating_on_planet_lab():
 
 
 if __name__ == "__main__":
-    search_lm_from_web("../resources/universities_us_0.9.json")
+    select_landmarks("../resources/universities_us_0.9.json")
     pass
 
 

@@ -92,11 +92,11 @@ def google_kg_search(query_str):
     return res.text
 
 
-def ripe_db_search(ip):
+def get_org_name_by_ripe(ip):
     api = "https://rest.db.ripe.net/search.json?source=ripe&query-string=%s" % ip # &source=apnic-grs
-    res = rt.try_best_request_get(api, 5, "ripe_db_search")
+    res = rt.try_best_request_get(api, 5, "get_org_name_by_ripe")
     if res is None or res.status_code != 200:
-        return ""
+        return None
 
     try:
         json_res = json.loads(res.text)
@@ -104,72 +104,80 @@ def ripe_db_search(ip):
         descr = []
 
         for ob in list_object:
-            if ob["type"] == "inetnum":
+            if ob["type"] == "organisation":
                 list_attr = ob["attributes"]["attribute"]
                 for attr in list_attr:
-                    if attr["name"] == "descr":
-                        descr.append(attr["value"])
+                    if attr["name"] == "org-name":
+                        return attr["value"]
     except Exception:
-        return ""
-
-    return ",".join(descr)
+        return None
 
 
-def arin_whois_rws_search(ip):
+def get_org_name_by_arin(ip):
     api = "https://whois.arin.net/rest/ip/%s" % ip
-    res = rt.try_best_request_get(api, 5, "arin_whois_rws_search", "abroad")
+    res = rt.try_best_request_get(api, 5, "get_org_name_by_arin", "abroad")
     if res is None or res.status_code != 200:
-        return ""
+        return None
 
     soup = BeautifulSoup(res.text, "lxml")
     handle = soup.select_one("handle").text
 
     api2 = "https://whois.arin.net/rest/net/%s/pft.json?s=%s" % (handle, ip)
-    res = rt.try_best_request_get(api2, 5, "arin_whois_rws_search", "abroad")
+    res = rt.try_best_request_get(api2, 5, "get_org_name_by_arin", "abroad")
     if res is None or res.status_code != 200:
-        return ""
+        return None
 
-    # soup = BeautifulSoup(res.text, "lxml")
-    #
-    # city = soup.select_one("org > city")
-    # if city is None:
-    #     city = soup.select_one("customer > city")
-    #
-    # name = soup.select_one("org > name")
-    # if name is None:
-    #     name = soup.select_one("customer > name")
-
-    # try:
-    #     whois_info = name.text + ", " + city.text
-    # except:
-    #     pass
-    city = ""
-    name = ""
+    name = None
     json_whois = json.loads(res.text)["ns4:pft"]
+
     if "org" in json_whois:
         org = json_whois["org"]
-        city = org["city"]["$"]
         name = org["name"]["$"]
     if "customer" in json_whois:
         customer = json_whois["customer"]
-        city = customer["city"]["$"]
         name = customer["name"]["$"]
 
-    return name + ", " + city
+    return name
 
 
-def get_orginfo_by_whois_rws(ip):
-    arin = arin_whois_rws_search(ip)
-    # Latin American and Caribbean IP address Regional Registry, Montevideo # https://rdap.registro.br/ip/201.54.140.10
+def get_org_name_by_lacnic(ip):
+    api = "https://rdap.registro.br/ip/%s" % ip
+    res = rt.try_best_request_get(api, 5, "get_org_name_by_lacnic", "abroad")
+    if res is None or res.status_code != 200:
+        return None
+
+    json_whois = json.loads(res.text)
+
+    list_vcard = json_whois["entities"][0]["vcardArray"][1]
+    for c in list_vcard:
+        if c[0] == "fn":
+            return c[3]
+
+    return None
+
+
+def get_org_name_by_apnic(ip):
+    pass
+
+
+def get_org_name_by_whois_rws(ip):
+    org = get_org_name_by_arin(ip)
     # Asia Pacific Network Information Centre, South Brisbane # http://wq.apnic.net/query?searchtext=111.204.219.195
-    #
-    if "RIPE Network Coordination Centre" in arin:
-        return ripe_db_search(ip)
 
-    reduntant = ["Inc.", "LLC", ".com"]
+    if org is not None and "RIPE Network Coordination Centre" in org:
+        org = get_org_name_by_ripe(ip)
+
+    if org is not None and "Latin American and Caribbean IP address Regional Registry" in org:
+        org = get_org_name_by_lacnic(ip)
+
+    if org is None:
+        return None
+
+    reduntant = ["Inc.", "LLC", ".com", "L.L.C"]
     pattern = "(%s)" % "|".join(reduntant)
-    arin = re.sub(pattern, "", arin, re.I)
-    return arin
+    org = re.sub(pattern, "", org, re.I)
+
+    return org
 
 
 # District of Columbia,
@@ -179,9 +187,9 @@ if __name__ == '__main__':
     # res = geolocation.google_map_places_search("VPISU")
     # print(res)
 
-    whois = arin_whois_rws_search("138.123.240.163")
+    whois = get_org_name_by_arin("34.200.30.249")
     print(whois)
-    # ripe = ripe_db_search("129.16.71.10")
+    # ripe = get_org_name_by_ripe("129.16.71.10")
     # coord = geolocation.google_map_coordinate(whois)
     # geolocation.dis_btw_2p(whois, "Delaware College of Art and Design US")
     # # print(ripe)

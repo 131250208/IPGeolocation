@@ -190,7 +190,7 @@ def concatenate_entities(list_entities):
     return query_str
 
 
-def query_str(html, url):
+def get_org_info(html, url):
     '''
     iterator, use next() to get query
     if addrs work, don't need to ocr logo, in order to save some money for google api
@@ -295,7 +295,7 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 if __name__ == "__main__":
-    find_pages_with_copyright("D:\\data_preprocessed/http_80_us.json", "D:\\data_preprocessed/pages_with_copyright_us.json", 23794)# 2121
+    find_pages_with_copyright("D:\\data_preprocessed/http_80_us.json", "D:\\data_preprocessed/pages_with_copyright_us.json", 92548)# 8500 + 1297 + 1332
     # pass
     # img_orc_baidu("../resources/kaist-logo.png")
     # res = ner_copyright("Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA")

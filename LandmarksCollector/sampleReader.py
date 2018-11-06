@@ -165,4 +165,4 @@ def filter_transaction_us(infilepath, outfilepath, index):
 if __name__ == "__main__":
     pass
     infilepath = "D:\\HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json"
-    filter_transaction_us(infilepath, "D:\\data_preprocessed/http_80_us_0.2.json", 7420876)# 838 saved
+    filter_transaction_us(infilepath, "D:\\data_preprocessed/http_80_us_0.2.json", 11615891)# 838 + 473 saved

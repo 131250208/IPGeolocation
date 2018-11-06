@@ -9,7 +9,7 @@ def test_org_extracter():
     for lm in landmarks:
         if lm["organization"] == "Palo Alto Research Center": # Palo Alto Research Center(1.8W)
             print(lm["geo_lnglat"]["pinpointed_area"])
-            it = oi.query_str(lm["html"], lm["url"])
+            it = oi.get_org_info(lm["html"], lm["url"])
             while True:
                 try:
                     print(next(it))

@@ -447,7 +447,7 @@ if __name__ == "__main__":
     map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
     list_target = [k for k in map_ip_coordination.keys() if k is not None]
     probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110502", ],
+    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110601", ],
                                         "measured by 6 probes, would be used to do contrast experiment")
 
 
