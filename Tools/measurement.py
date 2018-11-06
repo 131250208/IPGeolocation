@@ -432,22 +432,16 @@ def measure_process(dict_target2mfrprbs):
     return dict_target2mfrprbs
 
 if __name__ == "__main__":
-    # dict_measurement = get_measurement_res_by_tag("ipg-2018110101")
-    # print(json.dumps(dict_measurement, indent=2))
-    # json.dump(dict_measurement, open("../resources/measurement_ipg-2018110101.json", "w"))
-
-    # dict = json.load(open("../resources/measurement_ipg-2018110101.json", "r"))
-    # dict = measure_process(dict)
-    # json.dump(dict, open("../resources/measurement_ipg-2018110101_processed.json", "w"))
-
     import pytz
     tz = pytz.timezone('America/New_York')
     start_time = datetime.datetime.now(tz).timestamp() + 120
 
     map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
     list_target = [k for k in map_ip_coordination.keys() if k is not None]
-    probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110601", ],
-                                        "measured by 6 probes, would be used to do contrast experiment")
+    # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
+    probes_50 = json.load(open("../resources/probes_us.json", "r"))
+    probes = list(probes_50.values())
+    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110602", ],
+                                        "measured by 50 probes, would be used to do contrast experiment")
 
 

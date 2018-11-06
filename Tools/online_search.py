@@ -173,7 +173,7 @@ def get_org_name_by_whois_rws(ip):
     if org is None:
         return None
 
-    reduntant = ["Inc.", "LLC", ".com", "L.L.C"]
+    reduntant = ["Inc.", "LLC", ".com", "L.L.C", "Ltd"]
     pattern = "(%s)" % "|".join(reduntant)
     org = re.sub(pattern, "", org, re.I)
 

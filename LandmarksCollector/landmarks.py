@@ -326,7 +326,7 @@ def select_landmarks(in_file_path):
             "page": {
                 "query": query_page,
                 "coordinate": coordi_fr_page,
-                "dis_whois2com": dis_pageinfo2ipip,
+                "dis_page2com": dis_pageinfo2ipip,
             },
             "dis_pageinfo2whois": dis_page2whois,
         }
