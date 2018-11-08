@@ -234,11 +234,11 @@ def measure_by_ripe_oneoff_ping(list_target, list_probes, start_time, tags, des)
             "af": 4,
             "type": "ping",
             "packets": 4,
-            "packet_interval": 2,
+            "packet_interval": 2000,
             "size": 48,
             "target": t,
             "tags": tags,
-            "include_probe_id": False,
+            "include_probe_id": True,
         })
     api = "https://atlas.ripe.net:443/api/v2/measurements/ping?key=%s" % settings.RIPE_KEY_O
     data = {
@@ -341,19 +341,40 @@ def measure_by_ripe_scheduled_traceroute(list_target, list_probes, start_time, s
     return res
 
 
-def get_measurement_res_by_tag(tag):
+def get_ping_measurement_by_tag(tag):
     api = "https://atlas.ripe.net:443/api/v2/measurements/?tags=%s&key=%s" % (tag, settings.RIPE_KEY_O)
 
     url = api
     dict_target2mfrprbs = {}
     while True:
-        res = rt.try_best_request_get(url, 5, get_measurement_res_by_tag)
+        res = rt.try_best_request_get(url, 5, "get_traceroute_measurement_by_tag")
         measurement = json.loads(res.text)
         results = measurement["results"]
 
         for dst in pyprind.prog_bar(results):
             target = dst["target"]
-            res_dst = rt.try_best_request_get(dst["result"], 5, get_measurement_res_by_tag)
+            res_dst = rt.try_best_request_get(dst["result"], 5, "get_traceroute_measurement_by_tag")
+            measurement_per_dst = json.loads(res_dst.text)
+
+            dict_prb2trac = {}
+            for prb in measurement_per_dst:
+                prb_id = prb["prb_id"]
+                prb_res = prb["result"]
+
+
+def get_traceroute_measurement_by_tag(tag):
+    api = "https://atlas.ripe.net:443/api/v2/measurements/?tags=%s&key=%s" % (tag, settings.RIPE_KEY_O)
+
+    url = api
+    dict_target2mfrprbs = {}
+    while True:
+        res = rt.try_best_request_get(url, 5, "get_traceroute_measurement_by_tag")
+        measurement = json.loads(res.text)
+        results = measurement["results"]
+
+        for dst in pyprind.prog_bar(results):
+            target = dst["target"]
+            res_dst = rt.try_best_request_get(dst["result"], 5, "get_traceroute_measurement_by_tag")
             measurement_per_dst = json.loads(res_dst.text)
 
             dict_prb2trac = {}
@@ -390,6 +411,15 @@ def get_measurement_res_by_tag(tag):
             break
         url = next_page
 
+    # add vectors
+    dict_target2mfrprbs = measure_process(dict_target2mfrprbs)
+    # add coordinates
+    dict_target2coord = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    for key in dict_target2mfrprbs.keys():
+        dict_target2mfrprbs[key]["coordinate"] = {
+            "longitude": dict_target2coord[0],
+            "latitude": dict_target2coord[1],
+        }
     return dict_target2mfrprbs
 
 
@@ -420,28 +450,26 @@ def measure_process(dict_target2mfrprbs):
         dict_prb2trac = dict_target2mfrprbs[target_ip]
         for pb_ip in dict_prb2trac.keys():
             list_hops = dict_prb2trac[pb_ip]
-            # delay_total = 0
             for hp in list_hops:
                 vec = get_vect(hp["rtts"])
                 hp["vec"] = vec
-                # delay_total += vec[1] # add the best
-            # dict_prb2trac[pb_ip] = {
-            #     "list_hops": list_hops,
-            #     "delay_total": delay_total
-            # }
+
     return dict_target2mfrprbs
 
 if __name__ == "__main__":
-    import pytz
-    tz = pytz.timezone('America/New_York')
-    start_time = datetime.datetime.now(tz).timestamp() + 120
+    pass
 
-    map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
-    list_target = [k for k in map_ip_coordination.keys() if k is not None]
-    # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    probes_50 = json.load(open("../resources/probes_us.json", "r"))
-    probes = list(probes_50.values())
-    measure_by_ripe_hugenum_oneoff_ping(list_target, probes, start_time, ["ipg-2018110602", ],
-                                        "measured by 50 probes, would be used to do contrast experiment")
+    # import pytz
+    # tz = pytz.timezone('America/New_York')
+    #
+    # start_time = datetime.datetime.now(tz).timestamp() + 120
+    #
+    # map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    # list_target = [k for k in map_ip_coordination.keys() if k is not None]
+    # # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
+    # probes_50 = json.load(open("../resources/probes_us.json", "r")) # 50
+    # probes = list(probes_50.values())
+    # measure_by_ripe_hugenum_oneoff_traceroute(list_target, probes, start_time, ["ipg-2018110801", ],
+    #                                     "measured by 50 probes, would be used to do contrast experiment")
 
 
