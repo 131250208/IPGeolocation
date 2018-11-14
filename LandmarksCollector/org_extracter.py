@@ -10,10 +10,6 @@ from LandmarksCollector import settings
 from Tools import requests_tools as rt
 from Tools.mylogger import Logger
 from Tools import geolocation
-import gevent
-# from cairosvg import svg2png
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
 from itertools import combinations
 from Tools import mystring, ocr_tool, ner_tool
 logger = Logger("../Log/owner_identification_us.log")
@@ -211,13 +207,14 @@ def get_org_info(html, url):
     # get organization info
     soup = purifier.get_pure_soup_fr_html(html)
     title = get_title(soup)
-    list_entities_fr_logo = extract_org_fr_logo(soup, url)
+
     list_entities_fr_cpy = extract_org_fr_copyright(soup)
 
-    list_logo_text = [en["logo_text"] for en in list_entities_fr_logo]
-    list_logo_name= [en["logo_name"] for en in list_entities_fr_logo]
-    list_logo_alt = [en["logo_alt"] for en in list_entities_fr_logo]
-    list_logo_title = [en["logo_title"] for en in list_entities_fr_logo]
+    # list_entities_fr_logo = extract_org_fr_logo(soup, url)
+    # list_logo_text = [en["logo_text"] for en in list_entities_fr_logo]
+    # list_logo_name= [en["logo_name"] for en in list_entities_fr_logo]
+    # list_logo_alt = [en["logo_alt"] for en in list_entities_fr_logo]
+    # list_logo_title = [en["logo_title"] for en in list_entities_fr_logo]
 
     query1 = concatenate_entities(list_entities_fr_cpy)
 
@@ -225,14 +222,14 @@ def get_org_info(html, url):
     list_entities.extend(list_entities_fr_cpy)
     query2 = concatenate_entities(list_entities)
 
-    list_entities.extend(list_logo_title)
-    query3 = concatenate_entities(list_entities)
-    list_entities.extend(list_logo_text)
-    query4 = concatenate_entities(list_entities)
-    list_entities.extend(list_logo_alt)
-    query5 = concatenate_entities(list_entities)
-    list_entities.extend(list_logo_name)
-    query6 = concatenate_entities(list_entities)
+    # list_entities.extend(list_logo_title)
+    # query3 = concatenate_entities(list_entities)
+    # list_entities.extend(list_logo_text)
+    # query4 = concatenate_entities(list_entities)
+    # list_entities.extend(list_logo_alt)
+    # query5 = concatenate_entities(list_entities)
+    # list_entities.extend(list_logo_name)
+    # query6 = concatenate_entities(list_entities)
 
     # query7 = title
     # query8 = concatenate_entities(list_logo_title)
@@ -240,7 +237,7 @@ def get_org_info(html, url):
     # query10 = concatenate_entities(list_logo_alt)
     # query11 = concatenate_entities(list_logo_name)
 
-    tuple_query = (query6, query5, query4, query3, query2, query1)
+    tuple_query = (query2, query1) # 654321 7891011
     list_query = []
     for q in tuple_query: # remove the redundant str
         if q.strip() not in list_query and q.strip() != "":
@@ -295,7 +292,7 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 if __name__ == "__main__":
-    find_pages_with_copyright("D:\\data_preprocessed/http_80_us.json", "D:\\data_preprocessed/pages_with_copyright_us.json", 98881)# 8500 + 1297 + 1332 +881
+    find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us.json", "H:\\Projects/data_preprocessed/pages_with_copyright_us.json", 194861) # ~24000, remember to filter replicates
     # pass
     # img_orc_baidu("../resources/kaist-logo.png")
     # res = ner_copyright("Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA")

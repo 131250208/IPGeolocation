@@ -30,9 +30,35 @@ def google_map_places_search(queryStr):
     url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?" \
           "input=%s&inputtype=textquery" \
           "&fields=formatted_address,name,opening_hours,rating" \
+          "&locationbias=circle:2000@47.6918452,-122.2226413" \
           "&key=%s" % (quote(queryStr), settings.GOOGLE_API_KEY)
     res_json = rt.try_best_request_get(url, 5, "google_map_places_search", "abroad")
     return json.loads(res_json.text)
+
+
+def google_map_places_search_bias(query_str, lng, lat, radius):
+    url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?" \
+          "input=%s&inputtype=textquery" \
+          "&fields=formatted_address,name,opening_hours,rating" \
+          "&locationbias=circle:%d@%f,%f" \
+          "&key=%s" % (quote(query_str), radius, lat, lng, settings.GOOGLE_API_KEY)
+    res_json = rt.try_best_request_get(url, 5, "google_map_places_search_bias", "abroad")
+    return json.loads(res_json.text)
+
+
+def google_map_nearby_search(query_str, lng, lat, radius):
+    api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?keyword=%s&location=%f,%f&radius=%d&key=%s" % (quote(query_str), lat, lng, radius, settings.GOOGLE_API_KEY)
+    res_json = rt.try_best_request_get(api, 10, "google_map_nearby_search", "abroad")
+    res_json = json.loads(res_json.text)
+    list_candidates = []
+    for candidate in res_json["results"]:
+        list_candidates.append({
+            "org_name": candidate["name"],
+            "longitude": candidate["geometry"]["location"]["lng"],
+            "latitude": candidate["geometry"]["location"]["lat"],
+        })
+
+    return list_candidates
 
 
 def google_map_geocode_addr2co(address):
@@ -75,7 +101,7 @@ def google_map_geocode_co2addr(longitude, latitude):
 def google_map_coordinate(queryStr):
     '''
     get coordination by key words query
-    :param queryStr:
+    :param queryStr: queryStr of the target place
     :return:
     '''
     candidates = google_map_places_search(queryStr)["candidates"]
@@ -267,8 +293,8 @@ def ip_geolocation_ipplus360(ip):
 
 
 if __name__ == "__main__":
-    print(google_map_coordinate("Amazon ASHBURN"))
-    print(google_map_coordinate("Amazon Ashburn"))
+    res = google_map_nearby_search("Delaware State University, DelawareState University ", -77.4825772, 39.04519223333333, 50000)
+    print(json.dumps(res, indent=2))
     # print(dis_btw_2p("Amazon AWS: Ashburn Data Center", "Amazon Ashburn"))
     pass
 

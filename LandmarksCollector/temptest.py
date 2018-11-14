@@ -38,5 +38,5 @@ def test_copyright():
     #         print("list_cpyinfo_raw: %s, list_cpy: %s" % (list_copyright_info, list_org_fr_copyright))
 
 if __name__ == "__main__":
-    from LandmarksCollector import landmarks
-    landmarks.search_lm_from_web("../resources/universities_us_0.9.json")
+    from itertools import combinations
+    print(len(list(combinations(range(10000), 2))))

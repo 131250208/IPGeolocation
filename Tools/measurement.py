@@ -411,65 +411,51 @@ def get_traceroute_measurement_by_tag(tag):
             break
         url = next_page
 
-    # add vectors
-    dict_target2mfrprbs = measure_process(dict_target2mfrprbs)
-    # add coordinates
-    dict_target2coord = json.load(open("../resources/landmarks_ripe_us.json", "r"))
-    for key in dict_target2mfrprbs.keys():
-        dict_target2mfrprbs[key]["coordinate"] = {
-            "longitude": dict_target2coord[0],
-            "latitude": dict_target2coord[1],
-        }
     return dict_target2mfrprbs
 
 
-def get_vect(list_rtt):
-    list_valid_rtt = []
-    loss = 0
-
-    for rtt in list_rtt:
-        if rtt != -1:
-            list_valid_rtt.append(rtt)
-        else:
-            loss += 1
-
-    if loss == len(list_rtt):
-        return [-1, -1, -1, -1, -1]
-
-    array = np.array(list_valid_rtt)
-    best = array.min()
-    worst = array.max()
-    avg = array.mean()
-    stdev = array.std()
-
-    return [loss, best, worst, avg, stdev]
+def get_probe_info(pid):
+    api = "https://atlas.ripe.net:443/api/v2/probes/%s?key=%s" % (pid, settings.RIPE_KEY_O)
+    res = rt.try_best_request_get(api, 5, "get_probe_info")
+    json_res = json.loads(res.text)
+    ip = json_res["address_v4"]
+    lng = json_res["geometry"]["coordinates"][0]
+    lat = json_res["geometry"]["coordinates"][1]
+    return {
+        "ip": ip, "longitude": lng, "latitude": lat,
+    }
 
 
-def measure_process(dict_target2mfrprbs):
-    for target_ip in dict_target2mfrprbs.keys():
-        dict_prb2trac = dict_target2mfrprbs[target_ip]
-        for pb_ip in dict_prb2trac.keys():
-            list_hops = dict_prb2trac[pb_ip]
-            for hp in list_hops:
-                vec = get_vect(hp["rtts"])
-                hp["vec"] = vec
+def get_inp_4_baidu_map(list_pid):
+    map_pid2coordinate = {}
+    list_name_value = []
+    for pid in list_pid:
+        probe_info = get_probe_info(pid)
+        map_pid2coordinate[pid] = [probe_info["longitude"], probe_info["latitude"]]
+        list_name_value.append({"name": pid, "value": 50})
 
-    return dict_target2mfrprbs
+    print(list_name_value)
+    print("---------------------------------")
+    print(map_pid2coordinate)
+
 
 if __name__ == "__main__":
     pass
+    # import random
+    # m = {'4894': [-84.3185, 33.8495], '3588': [-147.1185, 64.8615], '12100': [-112.0725, 33.4475], '6373': [-94.5795, 39.0985], '13191': [-122.1085, 37.3875], '33713': [-104.9925, 39.9085], '13334': [-72.6915, 41.7695], '34719': [-75.7525, 39.6815], '14750': [-81.8805, 26.6375], '10099': [-84.4085, 33.9615], '14606': [-156.0225, 20.7805], '31492': [-91.6385, 41.8485], '32462': [-113.7895, 42.4985], '12156': [-89.5305, 40.9005], '10406': [-86.9825, 40.2005], '10507': [-97.8225, 37.7505], '33316': [-84.5825, 37.8805], '13397': [-91.0885, 30.3605], '31128': [-70.6815, 44.2015], '32710': [-77.6125, 38.2075], '34297': [-72.5185, 42.3705], '33068': [-83.9495, 43.4215], '34710': [-92.1025, 46.7875], '34723': [-88.2715, 34.8185], '14244': [-93.8505, 38.5895], '19957': [-112.0305, 46.6005], '27310': [-96.0725, 41.1275], '32849': [-119.7205, 39.0415], '13288': [-71.7385, 43.6415], '12012': [-74.5725, 39.9885], '35066': [-106.2195, 35.8205], '15740': [-75.9005, 42.5375], '11795': [-78.8785, 35.8595], '25224': [-96.8115, 46.8195], '32186': [-82.5085, 40.3305], '34313': [-97.6425, 35.5585], '33262': [-123.1095, 44.6385], '10598': [-78.0185, 40.7915], '33065': [-71.4495, 41.4495], '35293': [-81.0685, 33.9885], '15723': [-97.1115, 44.8985], '12180': [-86.9385, 36.0575], '35620': [-101.8615, 33.5775], '19976': [-111.6895, 40.2805], '10693': [-72.9685, 43.5685], '33609': [-79.2625, 37.3915], '35151': [-119.5505, 47.3175], '12726': [-81.5615, 38.3705], '34726': [-88.3115, 44.2305], '12159': [-108.7605, 44.7515]}
+    # list_pid = list(json.load(open("../resources/probes_us_25.json", "r")).values())
+    # # list_pid = list(m.keys())
+    # random.seed(time.time())
+    # random.shuffle(list_pid)
+    # map_pid2co = {}
+    # list_pid2val = []
+    # for pid in list_pid:
+    #     list_pid2val.append({"name": pid, "value": 50})
+    #     map_pid2co[pid] = m[pid]
+    # print(len(list_pid2val))
+    # print(list_pid2val)
+    # print("----------------")
+    # print(map_pid2co)
 
-    # import pytz
-    # tz = pytz.timezone('America/New_York')
-    #
-    # start_time = datetime.datetime.now(tz).timestamp() + 120
-    #
-    # map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
-    # list_target = [k for k in map_ip_coordination.keys() if k is not None]
-    # # probes = ["35151", "13191", "33713", "34726", "14750", "10693"]  # 6
-    # probes_50 = json.load(open("../resources/probes_us.json", "r")) # 50
-    # probes = list(probes_50.values())
-    # measure_by_ripe_hugenum_oneoff_traceroute(list_target, probes, start_time, ["ipg-2018110801", ],
-    #                                     "measured by 50 probes, would be used to do contrast experiment")
 
 
