@@ -292,7 +292,7 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 if __name__ == "__main__":
-    find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us.json", "H:\\Projects/data_preprocessed/pages_with_copyright_us.json", 194861) # ~24000, remember to filter replicates
+    find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us.json", "H:\\Projects/data_preprocessed/pages_with_copyright_us.json", 217244) # ~27398, remember to filter replicates
     # pass
     # img_orc_baidu("../resources/kaist-logo.png")
     # res = ner_copyright("Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA")

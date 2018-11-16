@@ -1,10 +1,10 @@
-import logging
+from Tools import mylogger
 from bs4 import BeautifulSoup
 import json
 import re
 from LandmarksCollector import settings
 from Tools import geolocation as geo
-
+logger = mylogger.Logger("../Log/sampleReader.py.log")
 
 def is_valid(line):
     '''
@@ -27,8 +27,8 @@ def is_valid(line):
     try:
         banner_info = json.loads(line)
     except Exception as e:
-        logging.warning(e)
-        logging.warning("error str can not be loads as json: %s" % line)
+        logger.war(e)
+        logger.war("error str can not be loads as json: %s" % line)
         return False
 
     if "error" in banner_info:  # filter error pages
@@ -38,8 +38,8 @@ def is_valid(line):
     try:
         status_code = banner_info["data"]["http"]["response"]["status_code"]
     except Exception as e:
-        logging.warning(e)
-        logging.warning("has no status_code: %s" % line)
+        logger.war(e)
+        logger.war("has no status_code: %s" % line)
         return False
 
     if status_code != 200:  # filter pages of which status code is not 200
@@ -68,7 +68,7 @@ def get_brief_one(line):
     try:
         banner_info = json.loads(line.decode("utf-8"))
     except Exception as e:
-        logging.warning(e)
+        logger.war(e)
         return None
 
     ip = banner_info["ip"]
@@ -112,7 +112,7 @@ def get_brief_one(line):
                 "path": path,
                 }
     except Exception as e:
-        logging.warning(e)
+        logger.war(e)
         return None
 
 
@@ -162,7 +162,28 @@ def filter_transaction_us(infilepath, outfilepath, index):
     out.close()
 
 
+def filter_duplicates(input_file_path, out_file_path):
+    inp_file = open(input_file_path, "r", encoding="utf-8")
+    out_file = open(out_file_path, "a", encoding="utf-8")
+    set_ip = set()
+    count_duplicates = 0
+    for ind, line in enumerate(inp_file):
+        print("-----------------%d--------------------" % ind)
+        page_info = json.loads(line)
+        if page_info["ip"] not in set_ip:
+            out_file.write("%s\n" % line.strip("\n"))
+            set_ip.add(page_info["ip"])
+        else:
+            logger.info("ip: %s is a duplicate...., del" % page_info["ip"])
+            count_duplicates += 1
+    out_file.close()
+    print(count_duplicates)
+
+
 if __name__ == "__main__":
+    # filter duplicate
+    # filter_duplicates("H:\\Projects/data_preprocessed/pages_with_copyright_us.json", "H:\\Projects/data_preprocessed/pages_with_copyright_us_filtered.json")
+    # find samples in us
+    # infilepath = "D:\\HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json"
+    # filter_transaction_us(infilepath, "D:\\data_preprocessed/http_80_us_0.2.json", 11615891)# 838 + 473 saved
     pass
-    infilepath = "D:\\HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json"
-    filter_transaction_us(infilepath, "D:\\data_preprocessed/http_80_us_0.2.json", 11615891)# 838 + 473 saved

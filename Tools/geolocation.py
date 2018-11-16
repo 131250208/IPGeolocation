@@ -48,7 +48,7 @@ def google_map_places_search_bias(query_str, lng, lat, radius):
 
 def google_map_nearby_search(query_str, lng, lat, radius):
     api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?keyword=%s&location=%f,%f&radius=%d&key=%s" % (quote(query_str), lat, lng, radius, settings.GOOGLE_API_KEY)
-    res_json = rt.try_best_request_get(api, 10, "google_map_nearby_search", "abroad")
+    res_json = rt.try_best_request_get(api, 999, "google_map_nearby_search", "abroad")
     res_json = json.loads(res_json.text)
     list_candidates = []
     for candidate in res_json["results"]:
@@ -292,9 +292,26 @@ def ip_geolocation_ipplus360(ip):
     }
 
 
+def google_map_static_map(list_coord):
+    list_coord_str = []
+    for coord in list_coord:
+        coord_str = "%f,%f" % (coord["latitude"], coord["longitude"])
+        list_coord_str.append(coord_str)
+
+    api = "https://maps.googleapis.com/maps/api/staticmap?language=en&size=2048x1280&maptype=roadmap&scale=4&zoom=4&key=AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk&markers=size:mid%7Ccolor:red%7C" + "%7C".join(list_coord_str)
+    return api
+
+
 if __name__ == "__main__":
-    res = google_map_nearby_search("Delaware State University, DelawareState University ", -77.4825772, 39.04519223333333, 50000)
-    print(json.dumps(res, indent=2))
+    list_prb = []
+    dict_probes = {'34759': [-122.0505, 47.5415], '33759': [-116.5705, 47.3215], '21031': [-108.5815, 45.7975], '25224': [-96.8115, 46.8195], '24899': [-84.7785, 45.0415], '15760': [-68.6695, 44.8675], '24908': [-124.4225, 43.0515], '32462': [-113.7895, 42.4985], '24971': [-105.2195, 39.7475], '24633': [-95.8415, 41.2585], '35561': [-82.8095, 39.9975], '10599': [-74.2285, 39.5815], '30352': [-121.9605, 37.2385], '11634': [-113.6215, 37.1195], '35620': [-101.8615, 33.5775], '35415': [-95.9425, 36.1495], '12180': [-86.9385, 36.0575], '2427': [-77.0215, 34.6705], '16951': [-118.0205, 33.7075], '12105': [-110.7525, 32.0795], '30263': [-99.4795, 27.5285], '35001': [-93.2025, 30.1975], '26946': [-84.2805, 30.4405], '24247': [-80.2105, 25.7905]}
+    for coord in dict_probes.values():
+        list_prb.append({
+            "longitude": coord[0],
+            "latitude": coord[1],
+        })
+    api = google_map_static_map(list_prb)
+    print(api)
     # print(dis_btw_2p("Amazon AWS: Ashburn Data Center", "Amazon Ashburn"))
     pass
 

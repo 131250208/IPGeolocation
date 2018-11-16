@@ -15,10 +15,20 @@ DRIVER_WAITING_TIME = 60
 
 # measurement by Ripe
 RIPE_KEY_O = "4a2268a2-17ad-42ea-9f82-16a92d0efeb5"
-RIPE_ACCOUNT_2_KEY = {
-    "wychengpublic@163.com": "4a2268a2-17ad-42ea-9f82-16a92d0efeb5",
+RIPE_ACCOUNT_KEY = [{
+    "account": "wychengpublic@163.com",
+    "key": "4a2268a2-17ad-42ea-9f82-16a92d0efeb5",
+    },
+    {
+    "account": "minshanhou9@163.com",
+    "key": "afec0a43-fd05-46e8-ab73-56cf34b2d0d6",
+    }
+]
 
-}
+#
+# minshanhou9@163.com----ckjz8233
+# pi8108548@163.com----ruhs8724
+# zhaijutong62@163.com----nlspj342
 
 # ocr tool
 BAIDU_API_KEY = "24.41d0976869d7ae95714d188117a8b17c.2592000.1542006180.282335-14421471"
