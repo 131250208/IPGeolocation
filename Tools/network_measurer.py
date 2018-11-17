@@ -113,7 +113,7 @@ class KeyCDN:
     def measure_by_keycdn(self):
         self.chrome.get("https://tools.keycdn.com/traceroute")
     
-        json_landmarks = json.load(open("../resources/landmarks_planet_lab_us.json", "r"))
+        json_landmarks = json.load(open("../Sources/landmarks_planet_lab_us.json", "r"))
         for lm in pyprind.prog_bar(json_landmarks):
             ip = lm["ip"]
             t1 = time.time()
@@ -123,7 +123,7 @@ class KeyCDN:
             t2 = time.time()
             print(t2 - t1)
     
-        json.dump(json_landmarks, open("../resources/landmarks_planetlab_us_measured.json", "w"))
+        json.dump(json_landmarks, open("../Sources/landmarks_planetlab_us_measured.json", "w"))
 
 # -------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -171,13 +171,13 @@ class RipeAtlas:
         res = requests.post(api, data=json.dumps(data))
         print(res.text)
 
-    def measure_by_ripe_hugenum_oneoff_traceroute(self, list_target, list_probes, start, tags, des, bill_to, key):
+    def measure_by_ripe_hugenum_oneoff_traceroute(self, list_target, list_probes, start, tags, des):
         list_target = [ip for ip in list_target if ip not in list_probes]
         measurement_chunks = self.chunks(list_target, 100)
     
         for ind, mc in enumerate(measurement_chunks):
             start_time = start + 900.0 * ind
-            res = self.measure_by_ripe_oneoff_traceroute(mc, list_probes, start_time, tags, des, bill_to, key)
+            res = self.measure_by_ripe_oneoff_traceroute(mc, list_probes, start_time, tags, des)
             print(res.status_code)
             print(res.text)
 
@@ -495,20 +495,13 @@ if __name__ == "__main__":
     account_key = settings.RIPE_ACCOUNT_KEY[1]
     ripe = RipeAtlas(account_key["account"], account_key["key"])
 
-    map_ip_coord = ripe.get_all_probes_us("../resources/landmarks_ripe_us.json")
-    # json.dump(map_ip_coord, open("../resources/landmarks_ripe_us.json", "w"))
+    map_ip_coord = ripe.get_all_probes_us("../Sources/landmarks_ripe_us.json")
+    # json.dump(map_ip_coord, open("../Sources/landmarks_ripe_us.json", "w"))
 
     list_target = [ip for ip in map_ip_coord.keys()]
     # list_target = list_target[:1000] if len(list_target) > 1000 else list_target
-    list_target = list_target[:500]
+    list_target = list_target[500:]
     ripe.measure_by_ripe_hugenum_oneoff_traceroute(list_target, list_pid, start_time,
-                                      ["ipg-22018111601", ], "test: 24 * 500",)
+                                      ["ipg-22018111701", ], "test: 24 * 400+（500：~）",)
 
 
-    # list_target = list_target[:40]
-    # res = measure_by_ripe_oneoff_traceroute(list_target, list_pid, start_time + 900.0,
-    #                                           ["ipg-22018111602", ], "test: 24 * 40")
-    #
-    # print(res.text)
-    # measure_by_ripe_hugenum_oneoff_traceroute(list_target, list_pid, start_time,
-    #                                           ["ipg-22018111601",], "24 robes, traceroute all probes in us")

@@ -254,7 +254,7 @@ if __name__ == "__main__":
     #     "records": records
     # }
 
-    # db = json.load(open("../resources/resDB_websites.json", "r"))
+    # db = json.load(open("../Sources/resDB_websites.json", "r"))
     # for r in db["records"]:
     #     industry = r["name_industry"]
     #     list_nw = []
@@ -266,4 +266,4 @@ if __name__ == "__main__":
     #     r["name_industry"] = n_industry
     #     r["fingerprint_code_download_url"] = r["fingerprint_code_download_url"].split("=")[0] + "=" + n_industry
     #
-    # json.dump(db, open("../resources/resDB_websites_0.1.json", "w"))
+    # json.dump(db, open("../Sources/resDB_websites_0.1.json", "w"))

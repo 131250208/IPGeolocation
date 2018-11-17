@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from LandmarksCollector.sampleReader import is_valid, get_brief_one
+from LandmarksCollector.data_preprocessor import is_valid, get_brief_one
 import re
 from LandmarksCollector import settings
 import logging

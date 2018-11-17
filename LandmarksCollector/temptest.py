@@ -1,15 +1,15 @@
-from LandmarksCollector import org_extracter as oi
+from LandmarksCollector import owner_name_extractor as oi
 from Tools import purifier
 import json
 from LandmarksCollector import settings
 
 
 def test_org_extracter():
-    landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
+    landmarks = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
     for lm in landmarks:
         if lm["organization"] == "Palo Alto Research Center": # Palo Alto Research Center(1.8W)
             print(lm["geo_lnglat"]["pinpointed_area"])
-            it = oi.get_org_info(lm["html"], lm["url"])
+            it = oi.get_org_info_fr_pageinfo(lm["html"], lm["url"])
             while True:
                 try:
                     print(next(it))
@@ -20,7 +20,7 @@ def test_org_extracter():
 
 def test_copyright():
     pass
-    # landmarks = json.load(open("../resources/landmarks_planetlab_0.3.json", "r"))
+    # landmarks = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
     # for lm in landmarks:
     #     if lm["organization"] in settings.INVALID_LANDMARKS:
     #         continue

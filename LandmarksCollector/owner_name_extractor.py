@@ -1,17 +1,12 @@
 import json
 from bs4 import BeautifulSoup
-import logging
 import re
-from Tools import online_search, purifier
+from Tools import purifier
 import requests
-import os
-from LandmarksCollector import sampleReader as sr
 from LandmarksCollector import settings
 from Tools import requests_tools as rt
 from Tools.mylogger import Logger
-from Tools import geolocation
-from itertools import combinations
-from Tools import mystring, ocr_tool, ner_tool
+from Tools import ocr_tool, ner_tool
 logger = Logger("../Log/owner_identification_us.log")
 
 
@@ -138,9 +133,7 @@ def extract_org_fr_logo(soup, url):
 def extract_org_fr_copyright(soup):
     list_copyright_info = extract_copyright_info(soup)
 
-    reduntant_words = settings.REDUNDANT_LIST_QUERY
-    reduntant_words.extend(settings.REDUNDANT_LIST_COPYRIGHT)
-    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
+    compile_redundant_str = "(%s)" % "|".join(settings.REDUNDANT_LIST_QUERY + settings.REDUNDANT_LIST_COPYRIGHT)
 
     list_entities_fr_cpy = []
     for copyright_info in list_copyright_info:
@@ -186,7 +179,7 @@ def concatenate_entities(list_entities):
     return query_str
 
 
-def get_org_info(html, url):
+def get_org_info_fr_pageinfo(html, url):
     '''
     iterator, use next() to get query
     if addrs work, don't need to ocr logo, in order to save some money for google api
@@ -194,19 +187,19 @@ def get_org_info(html, url):
     :param url:
     :return:
     '''
-    # get addr first
-    list_addr = extract_addr(html)
-    if len(list_addr) > 1:
-        list_addr = sorted(list_addr, key=lambda item: len(item), reverse=True)
-
-    for addr in list_addr:
-        yield addr
+    # # get addr first
+    # list_addr = extract_addr(html)
+    # if len(list_addr) > 1:
+    #     list_addr = sorted(list_addr, key=lambda item: len(item), reverse=True)
+    #
+    # for addr in list_addr:
+    #     yield addr
 
     # get ZIP code
 
     # get organization info
     soup = purifier.get_pure_soup_fr_html(html)
-    title = get_title(soup)
+    # title = get_title(soup)
 
     list_entities_fr_cpy = extract_org_fr_copyright(soup)
 
@@ -218,9 +211,9 @@ def get_org_info(html, url):
 
     query1 = concatenate_entities(list_entities_fr_cpy)
 
-    list_entities = [title, ]
-    list_entities.extend(list_entities_fr_cpy)
-    query2 = concatenate_entities(list_entities)
+    # list_entities = [title, ]
+    # list_entities.extend(list_entities_fr_cpy)
+    # query2 = concatenate_entities(list_entities)
 
     # list_entities.extend(list_logo_title)
     # query3 = concatenate_entities(list_entities)
@@ -237,7 +230,7 @@ def get_org_info(html, url):
     # query10 = concatenate_entities(list_logo_alt)
     # query11 = concatenate_entities(list_logo_name)
 
-    tuple_query = (query2, query1) # 654321 7891011
+    tuple_query = (query1, ) # 654321 7891011
     list_query = []
     for q in tuple_query: # remove the redundant str
         if q.strip() not in list_query and q.strip() != "":
@@ -253,61 +246,105 @@ def get_org_info(html, url):
     # Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA
     # 智能网络监控系统Copyright © 2018 Shanghai Technology All rights Reserved.
 
+'''
+-------------------------------------------------------------------------------------------------------------
+get organization name from registration databases
+'''
 
-def find_pages_with_copyright(in_file_path, out_file_path, index):
-    '''
-    identify monitoring pages
-    :param in_file_path:
-    :param out_file_path:
-    :param index:
-    :return:
-    '''
-    f_inp = open(in_file_path, "r", encoding="utf-8")
-    f_out = open(out_file_path, "a", encoding="utf-8")
 
-    ind = 0
-    count = 0
-    for line in f_inp:
-        if ind < index or line.strip() == "\n":
-            print("-----------------ind: %d pass--------------------" % (ind))
-            ind += 1
-            continue
-        try:
-            pageInfo = json.loads(line)
-        except Exception:
-            continue
+def get_org_name_by_ripe(ip):
+    api = "https://rest.db.ripe.net/search.json?source=ripe&query-string=%s" % ip # &source=apnic-grs
+    res = rt.try_best_request_get(api, 999, "get_org_name_by_ripe")
+    if res is None or res.status_code != 200:
+        return None
 
-        html = pageInfo["html"]
-        soup = purifier.get_pure_soup_fr_html(html)
+    try:
+        json_res = json.loads(res.text)
+        list_object = json_res["objects"]["object"]
+        descr = []
 
-        org_fr_copyright = extract_org_fr_copyright(soup)
-        if len(org_fr_copyright) > 0:
-            f_out.write("%s\n" % json.dumps(pageInfo))
-            count += 1
-            logging.warning("----------count: %d-------ind: %d identification: %s--------------------" % (count, ind, True))
-        else:
-            print("--------count: %d---------ind: %d identification: %s--------------------" % (count, ind, False))
-        ind += 1
+        for ob in list_object:
+            if ob["type"] == "organisation":
+                list_attr = ob["attributes"]["attribute"]
+                for attr in list_attr:
+                    if attr["name"] == "org-name":
+                        return attr["value"]
+    except Exception:
+        return None
 
-    f_out.close()
+
+def get_org_name_by_arin(ip):
+    api = "https://whois.arin.net/rest/ip/%s" % ip
+    res = rt.try_best_request_get(api, 999, "get_org_name_by_arin", "abroad")
+    if res is None or res.status_code != 200:
+        return None
+
+    soup = BeautifulSoup(res.text, "lxml")
+    handle = soup.select_one("handle").text
+
+    api2 = "https://whois.arin.net/rest/net/%s/pft.json?s=%s" % (handle, ip)
+    res = rt.try_best_request_get(api2, 5, "get_org_name_by_arin", "abroad")
+    if res is None or res.status_code != 200:
+        return None
+
+    name = None
+    json_whois = json.loads(res.text)["ns4:pft"]
+
+    if "org" in json_whois:
+        org = json_whois["org"]
+        name = org["name"]["$"]
+    if "customer" in json_whois:
+        customer = json_whois["customer"]
+        name = customer["name"]["$"]
+
+    return name
+
+
+def get_org_name_by_lacnic(ip):
+    api = "https://rdap.registro.br/ip/%s" % ip
+    res = rt.try_best_request_get(api, 999, "get_org_name_by_lacnic", "abroad")
+    if res is None or res.status_code != 200:
+        return None
+
+    json_whois = json.loads(res.text)
+
+    list_vcard = json_whois["entities"][0]["vcardArray"][1]
+    for c in list_vcard:
+        if c[0] == "fn":
+            return c[3]
+
+    return None
+
+
+def get_org_name_by_apnic(ip):
+    pass
+
+
+def get_org_name_by_registration_db(ip):
+    org = get_org_name_by_arin(ip)
+    # Asia Pacific Network Information Centre, South Brisbane # http://wq.apnic.net/query?searchtext=111.204.219.195
+
+    if org is not None and "RIPE Network Coordination Centre" in org:
+        org = get_org_name_by_ripe(ip)
+
+    if org is not None and "Latin American and Caribbean IP address Regional Registry" in org:
+        org = get_org_name_by_lacnic(ip)
+
+    if org is None:
+        return None
+
+    reduntant = ["Inc.", "LLC", ".com", "L.L.C", "Ltd", "technology", "Technologies"]
+    pattern = "(%s)" % "|".join(reduntant)
+    org = re.sub(pattern, "", org, re.I)
+
+    return org
+
 
 if __name__ == "__main__":
-    find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us.json", "H:\\Projects/data_preprocessed/pages_with_copyright_us.json", 217244) # ~27398, remember to filter replicates
-    # pass
-    # img_orc_baidu("../resources/kaist-logo.png")
-    # res = ner_copyright("Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA")
-    # print(res)
-    # owner_extract_transaction("D:\\samples_usa.json")
+    whois = get_org_name_by_registration_db("34.200.30.249")
+    print(whois)
+    pass
 
-    # filter_by_country("United States", "E:\\samples_usa.json", "E:\\samples_us_temp.json", 0)# 575 # 372212
-
-    # import nltk
-    # text = "Copyright (c) 2007 NTTPC Communications, Inc. All rights reserved."
-    # tokens = nltk.word_tokenize(text)  # 分词
-    # tagged = nltk.pos_tag(tokens)  # 词性标注
-    # entities = nltk.chunk.ne_chunk(tagged)  # 命名实体识别
-    # for entity in entities:
-    #     print(entity)
 
 
 

@@ -1,10 +1,12 @@
 import ner
+import time
 tagger = ner.SocketNER(host='localhost', port=8080)
 
 
 def ner_stanford(copyright_info):
     result = tagger.get_entities(copyright_info)
     return result
+
 
 if __name__ == "__main__":
     # res = ner_stanford("Palo Alto Research Center Incorporated; © 2018. All Rights Reserved")

@@ -20,7 +20,7 @@ def _to_str(something):
         return something
 
 
-class IP(object):
+class IPplus360(object):
     def __init__(self, ):
         self.base_len = 64
         self.offset_addr = 0
@@ -85,7 +85,7 @@ class IP(object):
 
 
 if __name__ == '__main__':
-    test = IP()
+    test = IPplus360()
     test.load_dat("test.dat")
     result = test.locate_ip('1.1.1.1')
     print(result)

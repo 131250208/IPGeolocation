@@ -134,7 +134,8 @@ def try_best_request_get(url, maxtime, tag, type=None):
         except Exception as e:
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
             logger.war(e)
-            time.sleep(3)
+            random.seed(time.time())
+            time.sleep(10 * random.random())
             error_count += 1
             if error_count > maxtime:
                 logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))

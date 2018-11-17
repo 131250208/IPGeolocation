@@ -1,7 +1,7 @@
 import pytz
 import datetime
 import json
-from Tools import measurement
+from Tools import network_measurer
 import numpy as np
 
 
@@ -11,12 +11,12 @@ def measure_targets():
 
     start_time = datetime.datetime.now(tz).timestamp() + 120
 
-    map_ip_coordination = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    map_ip_coordination = json.load(open("../Sources/landmarks_ripe_us.json", "r"))
     list_target = [k for k in map_ip_coordination.keys() if k is not None]
     # probes = ["35151", "13191", "", "34726", "14750", "10693"]  # 6
-    probes = json.load(open("../resources/probes_us_25.json", "r"))
+    probes = json.load(open("../Sources/probes_us_25.json", "r"))
     probes = list(probes.values())
-    measurement.measure_by_ripe_hugenum_oneoff_traceroute(list_target, probes, start_time, ["ipg-2018111001", ],
+    network_measurer.measure_by_ripe_hugenum_oneoff_traceroute(list_target, probes, start_time, ["ipg-2018111001", ],
                                         "measured by 25 probes, would be used to do contrast experiment")
 
 
@@ -55,11 +55,11 @@ def construct_vec(dict_target2mfrprbs):
 
 
 def preprocess_measurement_data(measurement_tag):
-    measurement_data = measurement.get_traceroute_measurement_by_tag(measurement_tag) # dict: target ip 2 measurement data
+    measurement_data = network_measurer.get_traceroute_measurement_by_tag(measurement_tag) # dict: target ip 2 measurement data
     # add vectors
     measurement_data = construct_vec(measurement_data)
     # add coordinates
-    dict_target2coord = json.load(open("../resources/landmarks_ripe_us.json", "r"))
+    dict_target2coord = json.load(open("../Sources/landmarks_ripe_us.json", "r"))
     for key in measurement_data.keys():
         measurement_data[key]["coordinate"] = {
             "longitude": dict_target2coord[0],
