@@ -283,6 +283,7 @@ def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index
         ind += 1
     f_out.close()
 
+
 if __name__ == "__main__":
     # get coordinate from several commercial dbs
     # get_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.3.json",
@@ -301,6 +302,12 @@ if __name__ == "__main__":
     # find_pages_us("H:\\Projects/HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json",
     #               "H:\\Projects/data_preprocessed/http_80_us_0.2.json", 15158267)# 1310K saved
 
+    # search candidates
     search_candidates_by_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
                                               "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 0)
+
+    # # show landmarks
+    # file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", "r")
+    # list_page_info = [json.loads(line) for line in file]
+    # iterative_inference_machine.generate_landmarks(list_page_info)
     pass

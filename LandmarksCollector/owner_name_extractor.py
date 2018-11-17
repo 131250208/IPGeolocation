@@ -333,7 +333,7 @@ def get_org_name_by_registration_db(ip):
     if org is None:
         return None
 
-    reduntant = ["Inc.", "LLC", ".com", "L.L.C", "Ltd", "technology", "Technologies"]
+    reduntant = ["Inc", "LLC", ".com", "L.L.C", "Ltd", "technology", "Technologies"]
     pattern = "(%s)" % "|".join(reduntant)
     org = re.sub(pattern, "", org, re.I)
 

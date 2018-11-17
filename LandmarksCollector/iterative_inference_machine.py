@@ -1,8 +1,8 @@
 import json
 
 import pyprind
-from Tools import geo_distance_calculator, mylogger, commercial_db, web_mapping_services
-from LandmarksCollector import owner_name_extractor as one
+from Tools import geo_distance_calculator, mylogger, commercial_db, web_mapping_services, purifier
+from LandmarksCollector import owner_name_extractor as one, settings
 logger = mylogger.Logger("../Log/iterative_inference_machine.py.log")
 
 
@@ -23,7 +23,7 @@ def get_candidates_by_owner_name_fr_pageinfo(html, url, lng, lat, radius):
             org_info = next(it)
         except StopIteration:
             break
-        query = org_info
+        query = purifier.filter_out_redundant_c(org_info, settings.REDUNDANT_LIST_QUERY)
         candidates = web_mapping_services.google_map_nearby_search(query, lng, lat, radius)
         last_query = query
         if len(candidates) > 0:
@@ -44,6 +44,8 @@ def search_candidates(page_info, lng_com, lat_com, radius,):
     :return: a page info object with candidates got from searching by owner names
     '''
     query_registration_db = one.get_org_name_by_registration_db(page_info["ip"])
+    query_registration_db = purifier.filter_out_redundant_c(query_registration_db, settings.REDUNDANT_LIST_QUERY)
+
     candidates_fr_registration_db = web_mapping_services.google_map_nearby_search(query_registration_db, lng_com, lat_com,
                                                                            radius) if query_registration_db is not None else []
 

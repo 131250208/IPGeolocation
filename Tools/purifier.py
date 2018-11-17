@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import re
 
+
 def get_pure_text_fr_html(html):
     '''
     get pure texts that people can see from browses
@@ -58,6 +59,13 @@ def get_pure_soup_fr_html(html, ignore_n=False):
 
 def prettify_text(text):
     return re.sub("[\r\t\n\s ]+", " ", text)
+
+
+def filter_out_redundant_c(str, list_redandant_char):
+    compile_redundant_str = "(%s)" % "|".join(list_redandant_char)
+    str = re.sub(compile_redundant_str, "", str, flags=re.I)
+    return str
+
 
 if __name__ == "__main__":
     html = re.sub("<!-+.*-+>", "", "<!------->")
