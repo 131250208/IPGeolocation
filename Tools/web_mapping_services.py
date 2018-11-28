@@ -41,6 +41,8 @@ def google_map_place_search_bias(query_str, lng, lat, radius):
 def google_map_nearby_search(query_str, lng, lat, radius):
     api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?keyword=%s&location=%f,%f&radius=%d&key=%s" % (quote(query_str), lat, lng, radius, settings.GOOGLE_API_KEY)
     res_json = rt.try_best_request_get(api, 999, "google_map_nearby_search", "abroad")
+    if res_json.status_code != 200:
+        return []
     res_json = json.loads(res_json.text)
     list_candidates = []
     for candidate in res_json["results"]:

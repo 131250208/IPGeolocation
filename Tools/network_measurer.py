@@ -370,7 +370,7 @@ class RipeAtlas:
                     prb_res = prb["result"]
                     list_res = []
                     for res in prb_res:
-                        pk_hop = res["result"]
+                        pk_hop = res["result"] if "result" in res else []
                         rtts = []
                         addr_rt = None
                         for pk in pk_hop:
@@ -391,7 +391,7 @@ class RipeAtlas:
                         })
                     dict_prb2trac[prb_id] = list_res
     
-                dict_target2mfrprbs[target] = dict_prb2trac
+                dict_target2mfrprbs[target] = {"measurement": dict_prb2trac, }
     
             next_page = measurement["next"]
             if next_page is None:
@@ -502,6 +502,6 @@ if __name__ == "__main__":
     # list_target = list_target[:1000] if len(list_target) > 1000 else list_target
     list_target = list_target[500:]
     ripe.measure_by_ripe_hugenum_oneoff_traceroute(list_target, list_pid, start_time,
-                                      ["ipg-22018111701", ], "test: 24 * 400+（500：~）",)
+                                      ["ipg-2018112702", ], "test: 24 * 400+",)
 
 

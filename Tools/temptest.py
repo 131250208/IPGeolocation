@@ -1,5 +1,4 @@
 from LandmarksCollector import owner_name_extractor as oi
-from Tools import purifier
 import json
 from LandmarksCollector import settings
 
@@ -37,6 +36,18 @@ def test_copyright():
     #         list_org_fr_copyright = oi.extract_org_fr_copyright(list_copyright_info)
     #         print("list_cpyinfo_raw: %s, list_cpy: %s" % (list_copyright_info, list_org_fr_copyright))
 
+
 if __name__ == "__main__":
-    from itertools import combinations
-    print(len(list(combinations(range(10000), 2))))
+    ip2coord_total = {}
+    list_name2val_total = []
+    for i in range(9):
+        file = open("../Sources/landmarks_fr_cyberspace_0.%d.json" % (i + 1), "r")
+        ip2coord = json.load(file)
+        list_name2val = [{"name": ip, "value": 50} for ip in ip2coord.keys()]
+
+        ip2coord_total = {**ip2coord_total, **ip2coord}
+        list_name2val_total = list_name2val_total + list_name2val
+    print(len(ip2coord_total))
+    print(len(list_name2val_total))
+    json.dump(ip2coord_total, open("../Sources/baidumap_inp_ip2co.json", "w"))
+    json.dump(list_name2val_total, open("../Sources/baidumap_inp_name2val.json", "w"))

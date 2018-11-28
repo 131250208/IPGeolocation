@@ -83,7 +83,11 @@ def get_brief_one(line):
         return None
 
     title = ""
-    soup = BeautifulSoup(html, "lxml")
+    try:
+        soup = BeautifulSoup(html, "lxml")
+    except Exception:
+        return None
+
     tag_title = soup.select_one("title")
     if tag_title is not None:
         title = tag_title.get_text()
@@ -259,55 +263,148 @@ def get_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
     f_out.close()
 
 
-def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index):
+from gevent import monkey
+monkey.patch_socket()
+import gevent
+
+
+def search_candidates_by_gevent(list_jobs):
+    t1 = time.time()
+    gevent.joinall(list_jobs)
+    list_page_info = [job.value for job in list_jobs]
+    t2 = time.time()
+    print(t2 - t1)
+    return list_page_info
+
+
+def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index_start, index_end, tag=None):
     f_inp = open(in_file_path, "r", encoding="utf-8")
     f_out = open(out_file_path, "a", encoding="utf-8")
 
     ind = 0
+    # size_gevent = 5
+    # count_gevent = 0
+    # list_jobs = []
     for line in f_inp:
-        print("-----------------ind: %d-------------------" % ind)
-        if ind < index or line.strip() == "\n":
+        print("-----------tag: %s------ind: %d------end: %d----------------" % (tag, ind, index_end))
+        if ind < index_start or line.strip() == "\n":
             print("-----------------ind: %d pass--------------------" % ind)
             ind += 1
             continue
+        elif ind >= index_end:
+            break
         try:
             page_info = json.loads(line)
         except Exception:
             continue
 
+        # if count_gevent < size_gevent:
+        #     list_jobs.append(gevent.spawn(iterative_inference_machine.search_candidates, page_info,
+        #                                                           page_info["result_fr_commercial_tool"]["longitude"],
+        #                                                           page_info["result_fr_commercial_tool"]["latitude"],
+        #                                                           20000))
+        #     count_gevent += 1
+        # else:
+        #     list_page_info = search_candidates_by_gevent(list_jobs)
+        #     ind += size_gevent
+        #     count_gevent = 0
+        #     for page_info in list_page_info:
+        #         f_out.write("%s\n" % json.dumps(page_info))
+        t1 = time.time()
         page_info = iterative_inference_machine.search_candidates(page_info,
                                                                   page_info["result_fr_commercial_tool"]["longitude"],
                                                                   page_info["result_fr_commercial_tool"]["latitude"],
                                                                   20000)
+        t2 = time.time()
+
+        print(t2 - t1)
         f_out.write("%s\n" % json.dumps(page_info))
         ind += 1
     f_out.close()
 
 
-if __name__ == "__main__":
-    # get coordinate from several commercial dbs
-    # get_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.3.json",
-    #                                 "H:\\Projects/data_preprocessed/http_80_us_0.4.json", 0)
+def get_initial_landmarks(inp_path, out_path):
+    file = open(inp_path, "r")
+    list_page_info = []
+    count_landmarks = 0
 
-    # # filter pages with copyright
-    # find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us_0.4.json",
-    #                           "H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
-    #                           0) #
+    dict_landmarks_total = {}
+    for line in file:
+        list_page_info.append(json.loads(line))
+        if len(list_page_info) == 10000:
+            dict_landmarks = iterative_inference_machine.generate_landmarks(list_page_info)
+            # print(json.dumps(dict_landmarks, indent=2))
+            len_lm = len(list(dict_landmarks.keys()))
+            dict_landmarks_total = {**dict_landmarks, **dict_landmarks_total}
+            print(len_lm)
+            count_landmarks += len_lm
+            list_page_info.clear()
+
+    dict_landmarks = iterative_inference_machine.generate_landmarks(list_page_info)
+    len_lm = len(list(dict_landmarks.keys()))
+    print(len_lm)
+    print(len(dict_landmarks_total))
+    json.dump(dict_landmarks_total, open(out_path, "w"))
+
+    print("total: %d" % count_landmarks)
+
+
+if __name__ == "__main__":
+    from multiprocessing import Pool
+
+    # # get coordinate from several commercial dbs
+    # get_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.5.json",
+    #                                 "H:\\Projects/data_preprocessed/http_80_us_0.6.json", 0)
+
+    # filter pages with copyright
+    # find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us_0.6.json",
+    #                           "H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
+    #                           417000) #
 
     # # filter duplicate
-    # filter_out_duplicates("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.3.json")
+    # filter_out_duplicates("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.5.json")
 
 
     # # find samples in us
     # find_pages_us("H:\\Projects/HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json",
-    #               "H:\\Projects/data_preprocessed/http_80_us_0.2.json", 15158267)# 1310K saved
+    #               "H:\\Projects/data_preprocessed/http_80_us_0.2.json", 51164702)# 3305K - 65K = 3240k saved
 
-    # search candidates
-    search_candidates_by_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
-                                              "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 0)
+    # # search candidates
+    # search_candidates_by_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
+    #                                           "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 43326, 53212)
 
-    # # show landmarks
-    # file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", "r")
+    # get initial landmarks
+    for i in range(8):
+        num = i + 2
+        inp_path = "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % num
+        out_path = "../Sources/landmarks_fr_cyberspace_0.%d.json" % num
+        get_initial_landmarks(inp_path, out_path)
+
+    # tag = [3]
+    # p = Pool(8)
+    # ind = 310
+    # rec = [32000, 32000, 32000, 26836, 32000, 32000, 32000, 25515]
+    # for i in tag:
+    #     start = ind + i * 32000 + rec[i]
+    #     end = ind + (i + 1) * 32000
+    #     if start == end:
+    #         print("start: %d, end: %d, the start is the same as the end, canceled" % (start, end))
+    #         continue
+    #     print("start: %d, end: %d" % (start, end))
+    #     p.apply_async(search_candidates_by_web_mapping_services, args=("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
+    #                                               "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 2),
+    #                                                                    start, end, i,))
+    # p.close()
+    # p.join()
+
+    # tag = [3]
+    # for i in tag:
+    #     file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 2), "r")
+    #     list_p = [line for line in file]
+    #     print(len(list_p))
+
+    # show landmarks
+    # file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.2.json", "r")
     # list_page_info = [json.loads(line) for line in file]
     # iterative_inference_machine.generate_landmarks(list_page_info)
     pass

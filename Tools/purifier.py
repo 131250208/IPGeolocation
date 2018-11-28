@@ -62,6 +62,9 @@ def prettify_text(text):
 
 
 def filter_out_redundant_c(str, list_redandant_char):
+    if str is None:
+        return None
+
     compile_redundant_str = "(%s)" % "|".join(list_redandant_char)
     str = re.sub(compile_redundant_str, "", str, flags=re.I)
     return str

@@ -275,7 +275,7 @@ def get_org_name_by_ripe(ip):
 
 def get_org_name_by_arin(ip):
     api = "https://whois.arin.net/rest/ip/%s" % ip
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_arin", "abroad")
+    res = rt.try_best_request_get(api, 999, "get_org_name_by_arin")
     if res is None or res.status_code != 200:
         return None
 
@@ -283,7 +283,7 @@ def get_org_name_by_arin(ip):
     handle = soup.select_one("handle").text
 
     api2 = "https://whois.arin.net/rest/net/%s/pft.json?s=%s" % (handle, ip)
-    res = rt.try_best_request_get(api2, 5, "get_org_name_by_arin", "abroad")
+    res = rt.try_best_request_get(api2, 5, "get_org_name_by_arin")
     if res is None or res.status_code != 200:
         return None
 
@@ -302,7 +302,7 @@ def get_org_name_by_arin(ip):
 
 def get_org_name_by_lacnic(ip):
     api = "https://rdap.registro.br/ip/%s" % ip
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_lacnic", "abroad")
+    res = rt.try_best_request_get(api, 999, "get_org_name_by_lacnic")
     if res is None or res.status_code != 200:
         return None
 

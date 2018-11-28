@@ -44,6 +44,7 @@ def search_candidates(page_info, lng_com, lat_com, radius,):
     :return: a page info object with candidates got from searching by owner names
     '''
     query_registration_db = one.get_org_name_by_registration_db(page_info["ip"])
+
     query_registration_db = purifier.filter_out_redundant_c(query_registration_db, settings.REDUNDANT_LIST_QUERY)
 
     candidates_fr_registration_db = web_mapping_services.google_map_nearby_search(query_registration_db, lng_com, lat_com,
@@ -61,6 +62,7 @@ def search_candidates(page_info, lng_com, lat_com, radius,):
         "candidates": candidates_fr_registration_db,
     }
 
+    # print("%s finished..." % page_info["ip"])
     return page_info
 
 
@@ -115,9 +117,9 @@ def generate_landmarks(list_inference_info):
             },
             "dis_pageinfo2registration_db": dis_page2registration_db,
         }
-        logger.war(json.dumps(output, indent=2))
+        # logger.war(json.dumps(output, indent=2))
 
-        threshold = 10000
+        threshold = 20000
         if dis_registration_db2ipip <= threshold or dis_pageinfo2ipip <= threshold:
             lng = None
             lat = None
@@ -130,12 +132,32 @@ def generate_landmarks(list_inference_info):
             dict_landmark[ip] = [lng, lat]
     return dict_landmark
 
-
 if __name__ == "__main__":
 
-    # dict_landmarks = generate_landmarks(list_page_info)
-    # print(json.dumps(dict_landmarks, indent=2))
-    # print(len(list(dict_landmarks.keys())))
+    file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", "r")
+    list_page_info = []
+    count_landmarks = 0
+
+    dict_landmarks_total = {}
+    for line in file:
+        list_page_info.append(json.loads(line))
+        if len(list_page_info) == 10000:
+            dict_landmarks = generate_landmarks(list_page_info)
+            # print(json.dumps(dict_landmarks, indent=2))
+            len_lm = len(list(dict_landmarks.keys()))
+            dict_landmarks_total = {**dict_landmarks, **dict_landmarks_total}
+            print(len_lm)
+            count_landmarks += len_lm
+            list_page_info.clear()
+
+    dict_landmarks = generate_landmarks(list_page_info)
+    len_lm = len(list(dict_landmarks.keys()))
+    print(len_lm)
+    print(len(dict_landmarks_total))
+    json.dump(dict_landmarks_total, open("../Sources/landmarks_fr_cyberspace_0.1.json", "w"))
+
+    print("total: %d" % count_landmarks)
+
     pass
 
 
