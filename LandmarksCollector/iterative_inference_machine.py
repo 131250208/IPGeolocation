@@ -4,7 +4,7 @@ import pyprind
 from Tools import geo_distance_calculator, mylogger, commercial_db, web_mapping_services, purifier
 from LandmarksCollector import owner_name_extractor as one, settings
 logger = mylogger.Logger("../Log/iterative_inference_machine.py.log")
-
+from itertools import combinations
 
 def get_candidates_by_owner_name_fr_pageinfo(html, url, lng, lat, radius):
     '''
@@ -64,6 +64,61 @@ def search_candidates(page_info, lng_com, lat_com, radius,):
 
     # print("%s finished..." % page_info["ip"])
     return page_info
+
+
+def get_dis_2clusters(cluster1, cluster2):
+    '''
+    :param cluster1:
+    :param cluster2:
+    :return: max_dis, maximal distance btw random 2 candidates in two clusters
+    '''
+    max_dis = -1
+    for c1 in cluster1:
+        for c2 in cluster2:
+            dis_c1_c2 = geo_distance_calculator.get_geodistance_btw_2coordinates(c1["longitude"], c1["latitude"],
+                                                                     c2["longitude"], c2["latitude"])
+            max_dis = dis_c1_c2 if dis_c1_c2 > max_dis else max_dis
+
+    return max_dis
+
+
+def merge_near_candidates(candidates_list, max_distance):
+    if len(candidates_list) <= 1:
+        return candidates_list
+
+    candidates_list = [[c, ] for c in candidates_list]
+
+    while True:
+        pair_list = combinations(candidates_list, 2)
+        dis_min = 9999999999
+        pair_closest = None
+        for pair in pair_list:
+            dis = get_dis_2clusters(pair[0], pair[1])
+            if dis < dis_min:
+                dis_min = dis
+                pair_closest = pair
+
+        if dis_min > max_distance:
+            break
+
+        # merge candidates
+        candidates_list.remove(pair_closest[0])
+        candidates_list.remove(pair_closest[1])
+        candidates_list.append(pair_closest[0] + pair_closest[1])
+
+    candidates_list_new = []
+    for can in candidates_list:
+        if len(can) == 1:
+            candidates_list_new.append(can[0])
+        else:
+            names = [c["org_name"] for c in can]
+            name_merged = " + ".join(names)
+
+            can = geo_distance_calculator.get_stdev_coordinates(can)[1]
+            can["org_name"] = name_merged
+            candidates_list_new.append(can)
+
+    return candidates_list_new
 
 
 def generate_landmarks(list_inference_info):
@@ -131,6 +186,7 @@ def generate_landmarks(list_inference_info):
                 lat = candidates_fr_registration_db[0]["latitude"]
             dict_landmark[ip] = [lng, lat]
     return dict_landmark
+
 
 if __name__ == "__main__":
 

@@ -151,4 +151,5 @@ if __name__ == "__main__":
     # api = google_map_static_map(list_prb)
     # print(api)
 
-    google_map_nearby_search("School of Drama | College of Performing Arts | The New School,", )
+    res = google_map_get_coordinate("kansas us")
+    print(res)

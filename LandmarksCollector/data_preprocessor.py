@@ -128,6 +128,9 @@ def check_title(title):
     return True
 
 
+# --------------------------------batch processing---------------------------------------------------------------------
+
+
 def find_pages_us(infilepath, outfilepath, index):
     '''
     for data from ipv4 space ~ 700G
@@ -224,7 +227,7 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 
-def get_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
+def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
     '''
     filter out IPs of which the location is ambiguous, that is, whose results from commercial databases are very different
     '''
@@ -263,28 +266,26 @@ def get_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
     f_out.close()
 
 
-from gevent import monkey
-monkey.patch_socket()
-import gevent
+# from gevent import monkey
+# monkey.patch_socket()
+# import gevent
+#
+#
+# def search_candidates_by_gevent(list_jobs):
+#     t1 = time.time()
+#     gevent.joinall(list_jobs)
+#     list_page_info = [job.value for job in list_jobs]
+#     t2 = time.time()
+#     print(t2 - t1)
+#     return list_page_info
 
 
-def search_candidates_by_gevent(list_jobs):
-    t1 = time.time()
-    gevent.joinall(list_jobs)
-    list_page_info = [job.value for job in list_jobs]
-    t2 = time.time()
-    print(t2 - t1)
-    return list_page_info
-
-
-def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index_start, index_end, tag=None):
+def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, index_start, index_end, tag=None):
     f_inp = open(in_file_path, "r", encoding="utf-8")
     f_out = open(out_file_path, "a", encoding="utf-8")
 
     ind = 0
-    # size_gevent = 5
-    # count_gevent = 0
-    # list_jobs = []
+
     for line in f_inp:
         print("-----------tag: %s------ind: %d------end: %d----------------" % (tag, ind, index_end))
         if ind < index_start or line.strip() == "\n":
@@ -298,18 +299,6 @@ def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index
         except Exception:
             continue
 
-        # if count_gevent < size_gevent:
-        #     list_jobs.append(gevent.spawn(iterative_inference_machine.search_candidates, page_info,
-        #                                                           page_info["result_fr_commercial_tool"]["longitude"],
-        #                                                           page_info["result_fr_commercial_tool"]["latitude"],
-        #                                                           20000))
-        #     count_gevent += 1
-        # else:
-        #     list_page_info = search_candidates_by_gevent(list_jobs)
-        #     ind += size_gevent
-        #     count_gevent = 0
-        #     for page_info in list_page_info:
-        #         f_out.write("%s\n" % json.dumps(page_info))
         t1 = time.time()
         page_info = iterative_inference_machine.search_candidates(page_info,
                                                                   page_info["result_fr_commercial_tool"]["longitude"],
@@ -320,6 +309,32 @@ def search_candidates_by_web_mapping_services(in_file_path, out_file_path, index
         print(t2 - t1)
         f_out.write("%s\n" % json.dumps(page_info))
         ind += 1
+    f_out.close()
+
+
+def merge_near_candidates(in_file_path, out_file_path, index_start, tag):
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+    f_out = open(out_file_path, "a", encoding="utf-8")
+
+    ind = 0
+    for line in f_inp:
+        print("-----------tag: %s------ind: %d------------" % (tag, ind, ))
+        if ind < index_start or line.strip() == "\n":
+            print("-----------------ind: %d pass--------------------" % ind)
+            ind += 1
+            continue
+
+        try:
+            page_info = json.loads(line.strip("\n"))
+        except Exception:
+            continue
+
+        candidates = page_info["result_fr_page"]["candidates"] + page_info["result_fr_registration_db"]["candidates"]
+        candidates = iterative_inference_machine.merge_near_candidates(candidates, 2000)
+        page_info["candidates_merged"] = candidates
+        f_out.write("%s\n" % json.dumps(page_info))
+        ind += 1
+
     f_out.close()
 
 
@@ -350,35 +365,48 @@ def get_initial_landmarks(inp_path, out_path):
 
 
 if __name__ == "__main__":
-    from multiprocessing import Pool
+
 
     # # get coordinate from several commercial dbs
-    # get_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.5.json",
+    # incorporate_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.5.json",
     #                                 "H:\\Projects/data_preprocessed/http_80_us_0.6.json", 0)
 
-    # filter pages with copyright
+    # # filter pages with copyright
     # find_pages_with_copyright("H:\\Projects/data_preprocessed/http_80_us_0.6.json",
     #                           "H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
     #                           417000) #
 
     # # filter duplicate
     # filter_out_duplicates("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.5.json")
-
-
+    #
+    #
     # # find samples in us
     # find_pages_us("H:\\Projects/HTTP数据/全球_HTTP_80/HTTP_80_deviceScanTask_1538017385_80_zgrab.json",
     #               "H:\\Projects/data_preprocessed/http_80_us_0.2.json", 51164702)# 3305K - 65K = 3240k saved
 
     # # search candidates
-    # search_candidates_by_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
+    # incorporate_candidates_fr_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
     #                                           "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 43326, 53212)
 
     # get initial landmarks
-    for i in range(8):
-        num = i + 2
-        inp_path = "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % num
-        out_path = "../Sources/landmarks_fr_cyberspace_0.%d.json" % num
-        get_initial_landmarks(inp_path, out_path)
+    # for i in range(8):
+    #     num = i + 2
+    #     inp_path = "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % num
+    #     out_path = "../Sources/landmarks_fr_cyberspace_0.%d.json" % num
+    #     get_initial_landmarks(inp_path, out_path)
+
+    # multiprocessing missions
+    from multiprocessing import Pool
+
+    p = Pool(9)
+    start_indices = [0 for _ in range(9)]
+    for i in range(9):
+        p.apply_async(merge_near_candidates, args=("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 1),
+                                                  "H:\\Projects/data_preprocessed/samples_us_with_candidates_1.%d.json" % (i + 1),
+                                                                       start_indices[i], i))
+
+    p.close()
+    p.join()
 
     # tag = [3]
     # p = Pool(8)
@@ -403,8 +431,4 @@ if __name__ == "__main__":
     #     list_p = [line for line in file]
     #     print(len(list_p))
 
-    # show landmarks
-    # file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.2.json", "r")
-    # list_page_info = [json.loads(line) for line in file]
-    # iterative_inference_machine.generate_landmarks(list_page_info)
     pass

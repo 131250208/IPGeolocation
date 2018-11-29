@@ -45,6 +45,11 @@ def get_stdev_coordinates(coordinates):
 
 
 if __name__ == "__main__":
+    coordinates = [{"longitude": -122.0236615, "latitude": 37.4092265},
+                   {"longitude": -122.0144237, "latitude": 37.4160916},
+                   {"longitude": -121.8942373, "latitude": 37.3801141},
+                   ]
+    print(get_stdev_coordinates(coordinates))
     pass
 
 
