@@ -5,7 +5,36 @@ import time
 import re
 from Tools import mylogger
 import sys
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.common.by import By
 logger = mylogger.Logger("../Log/request_tools.py.log")
+
+
+class MyChrome(webdriver.Chrome):
+    def __init__(self):
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--proxy-server=%s' % settings.PROXY_ABROAD)
+        # chrome_options.add_argument("--headless")
+        prefs = {'profile.managed_default_content_settings.images': 2}
+        chrome_options.add_experimental_option('prefs', prefs)
+        super(MyChrome, self).__init__(options=chrome_options)
+
+    # def get_chrome(self):
+    #     return self.chrome
+
+    def wait_to_get_element(self, css_selector):
+        while True:
+            try:
+                element = WebDriverWait(self, settings.DRIVER_WAITING_TIME).until(
+                    ec.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
+                break
+            except Exception as e:
+                print(e)
+                continue
+        return element
+
 
 user_agents = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0",
@@ -50,9 +79,22 @@ def get_proxies_abroad():
     return proxies
 
 
+def get_proxies_spider_abroad():
+    ip_port = "lum-customer-hl_95db9f83-zone-static:m6yzbkj85sou@zproxy.lum-superproxy.io:22225"
+    proxies = {"http": "http://%s" % ip_port,
+               "https": "http://%s" % ip_port}
+    return proxies
+
+
+proxies_dict = {"abroad": get_proxies_abroad(),
+                "spider": get_proxies_spider(),
+                "spider_abroad": get_proxies_spider_abroad(),
+                "None": None}
+
+
 def get_random_headers():
     random.seed(time.time())
-    headers["user-agent"] = random.choice(user_agents)
+    headers["user-agent"] = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0"
     return headers
 
 
@@ -98,16 +140,11 @@ def recover_url(url_this, path):
     return host + path
 
 
-def try_best_request_post(url, data, maxtime, tag, type):
+def try_best_request_post(url, data, maxtime, tag="-", proxy_type="None"):
     error_count = 0
     while True:
         try:
-            proxies = None
-            if type == "abroad":
-                proxies = get_proxies_abroad()
-            elif type == "spider":
-                proxies = get_proxies_spider()
-            res = requests.post(url, data=data, headers=get_random_headers(), proxies=proxies, timeout=10)
+            res = requests.post(url, data=data, headers=get_random_headers(), proxies=proxies_dict[proxy_type], timeout=10)
             break
         except Exception as e:
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
@@ -119,17 +156,11 @@ def try_best_request_post(url, data, maxtime, tag, type):
     return res
 
 
-def try_best_request_get(url, maxtime, tag, type=None):
+def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
     error_count = 0
     while True:
         try:
-            proxies = None
-            if type == "abroad":
-                proxies = get_proxies_abroad()
-            elif type == "spider":
-                proxies = get_proxies_spider()
-
-            res = requests.get(url, headers=get_random_headers(), proxies=proxies, timeout=10)
+            res = requests.get(url, headers=get_random_headers(), proxies=proxies_dict[proxy_type], timeout=10)
             break
         except Exception as e:
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))

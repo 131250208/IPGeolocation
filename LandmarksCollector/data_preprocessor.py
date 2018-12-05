@@ -2,10 +2,17 @@ from Tools import mylogger
 from bs4 import BeautifulSoup
 import json
 import re
-from LandmarksCollector import settings, owner_name_extractor, iterative_inference_machine
-from Tools import commercial_db, purifier
-logger = mylogger.Logger("../Log/data_preprocessor.py.log")
+from LandmarksCollector import settings, owner_name_extractor, iterative_inference_machine, enumeration
+from Tools import commercial_db, purifier, geo_distance_calculator, network_measurer, settings as st_tool
+import logging
+logger = mylogger.Logger("../Log/data_preprocessor.py.log", clevel=logging.INFO)
 import time
+from multiprocessing import Pool
+import random
+import pytz
+import datetime
+import pyprind
+
 
 def is_valid(line):
     '''
@@ -149,14 +156,14 @@ def find_pages_us(infilepath, outfilepath, index):
         if ind < index:
             ind += 1
             continue
-        page_info = get_brief_one(line) if is_valid(line) else None
-        if page_info is not None and check_title(page_info["title"]):
-            location_info = commercial_db.get_location_info_by_commercial_tools(page_info["ip"])
+        sample = get_brief_one(line) if is_valid(line) else None
+        if sample is not None and check_title(sample["title"]):
+            location_info = commercial_db.get_location_info_by_commercial_tools(sample["ip"])
             if location_info and location_info["country"] == "United States":
                 # print("idc: %s, isp: %s, region: %s, city: %s, lon: %s, lat: %s" % (ipip["idc"], ipip["isp"], ipip["region"], ipip["city"], ipip["longitude"], ipip["latitude"]) )
-                # print(page_info)
+                # print(sample)
 
-                out.write("%s\n" % json.dumps(page_info))
+                out.write("%s\n" % json.dumps(sample))
                 count_temp += 1
                 if count_temp == save_size:
                     saved_time += 1
@@ -170,19 +177,25 @@ def find_pages_us(infilepath, outfilepath, index):
     out.close()
 
 
-def filter_out_duplicates(input_file_path, out_file_path):
+def filter_out_invalid(input_file_path, out_file_path):
+    '''
+    invalid: duplicates and dead ones(can not ping)
+    :param input_file_path:
+    :param out_file_path:
+    :return:
+    '''
     inp_file = open(input_file_path, "r", encoding="utf-8")
     out_file = open(out_file_path, "a", encoding="utf-8")
     set_ip = set()
     count_duplicates = 0
     for ind, line in enumerate(inp_file):
         print("-----------------%d--------------------" % ind)
-        page_info = json.loads(line)
-        if page_info["ip"] not in set_ip:
-            out_file.write("%s\n" % json.dumps(page_info))
-            set_ip.add(page_info["ip"])
+        sample = json.loads(line)
+        if sample["ip"] not in set_ip and network_measurer.ping(sample["ip"], 1):
+            out_file.write("%s\n" % json.dumps(sample))
+            set_ip.add(sample["ip"])
         else:
-            logger.info("ip: %s is a duplicate...., del" % page_info["ip"])
+            logger.info("ip: %s is a invalid...., del" % sample["ip"])
             count_duplicates += 1
     out_file.close()
     print("count_duplicates: %d" % count_duplicates)
@@ -190,7 +203,7 @@ def filter_out_duplicates(input_file_path, out_file_path):
 
 def find_pages_with_copyright(in_file_path, out_file_path, index):
     '''
-    identify monitoring pages
+    find samples with copyright on its page
     :param in_file_path:
     :param out_file_path:
     :param index:
@@ -207,17 +220,17 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
             ind += 1
             continue
         try:
-            pageInfo = json.loads(line)
+            sample = json.loads(line)
         except Exception:
             continue
 
-        html = pageInfo["html"]
+        html = sample["html"]
         soup = purifier.get_pure_soup_fr_html(html)
 
         org_fr_copyright = owner_name_extractor.extract_org_fr_copyright(soup)
 
         if len(org_fr_copyright) > 0:
-            f_out.write("%s\n" % json.dumps(pageInfo))
+            f_out.write("%s\n" % json.dumps(sample))
             count += 1
             logger.war("----------count: %d-------ind: %d identification: %s--------------------" % (count, ind, True))
         else:
@@ -242,13 +255,13 @@ def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
             ind += 1
             continue
         try:
-            page_info = json.loads(line)
+            sample = json.loads(line)
         except Exception:
             continue
 
         print("-----------------ind: %d, count of ambiguous ip: %d--------------------" % (ind, count_ambiguity))
 
-        ip = page_info["ip"]
+        ip = sample["ip"]
         ipinfo_fr_commercial_tools = commercial_db.get_location_info_by_commercial_tools(ip) # filter
 
         if ipinfo_fr_commercial_tools is None:
@@ -257,27 +270,13 @@ def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
             print("%s the city is ambiguous..." % ip)
             continue
 
-        page_info["result_fr_commercial_tool"] = ipinfo_fr_commercial_tools
-        f_out.write("%s\n" % json.dumps(page_info))
+        sample["result_fr_commercial_tool"] = ipinfo_fr_commercial_tools
+        f_out.write("%s\n" % json.dumps(sample))
 
         ind += 1
 
     print("count_ambiguity: %d" % count_ambiguity)
     f_out.close()
-
-
-# from gevent import monkey
-# monkey.patch_socket()
-# import gevent
-#
-#
-# def search_candidates_by_gevent(list_jobs):
-#     t1 = time.time()
-#     gevent.joinall(list_jobs)
-#     list_page_info = [job.value for job in list_jobs]
-#     t2 = time.time()
-#     print(t2 - t1)
-#     return list_page_info
 
 
 def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, index_start, index_end, tag=None):
@@ -295,19 +294,19 @@ def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, 
         elif ind >= index_end:
             break
         try:
-            page_info = json.loads(line)
+            sample = json.loads(line)
         except Exception:
             continue
 
         t1 = time.time()
-        page_info = iterative_inference_machine.search_candidates(page_info,
-                                                                  page_info["result_fr_commercial_tool"]["longitude"],
-                                                                  page_info["result_fr_commercial_tool"]["latitude"],
+        sample = iterative_inference_machine.search_candidates(sample,
+                                                                  sample["result_fr_commercial_tool"]["longitude"],
+                                                                  sample["result_fr_commercial_tool"]["latitude"],
                                                                   20000)
         t2 = time.time()
 
         print(t2 - t1)
-        f_out.write("%s\n" % json.dumps(page_info))
+        f_out.write("%s\n" % json.dumps(sample))
         ind += 1
     f_out.close()
 
@@ -325,48 +324,215 @@ def merge_near_candidates(in_file_path, out_file_path, index_start, tag):
             continue
 
         try:
-            page_info = json.loads(line.strip("\n"))
+            sample = json.loads(line.strip("\n"))
         except Exception:
             continue
 
-        candidates = page_info["result_fr_page"]["candidates"] + page_info["result_fr_registration_db"]["candidates"]
+        candidates = sample["result_fr_page"]["candidates"] + sample["result_fr_registration_db"]["candidates"]
         candidates = iterative_inference_machine.merge_near_candidates(candidates, 2000)
-        page_info["candidates_merged"] = candidates
-        f_out.write("%s\n" % json.dumps(page_info))
+        sample["candidates_merged"] = candidates
+
+        if len(candidates) == 1:
+            sample["status"] = enumeration.SAMPLE_STATUS_FIN
+            sample["coordinate"] = candidates[0]
+        elif len(candidates) > 1:
+            sample["status"] = enumeration.SAMPLE_STATUS_WFVG
+        else:
+            sample["status"] = enumeration.SAMPLE_STATUS_FAI
+
+        f_out.write("%s\n" % json.dumps(sample))
         ind += 1
 
     f_out.close()
 
 
-def get_initial_landmarks(inp_path, out_path):
+def slice_sample_file_by_num_of_candidates(inp_file_path, out_directory, index_start):
+    f_inp = open(inp_file_path, "r", encoding="utf-8")
+
+    ind = 0
+    for line in f_inp:
+        print("--------------ind: %d--------------" % ind)
+        if ind < index_start or line.strip() == "\n":
+            print("-----------------ind: %d pass-------------" % ind)
+            ind += 1
+            continue
+
+        try:
+            sample = json.loads(line.strip("\n"))
+        except Exception:
+            continue
+
+        candidates = sample["candidates_merged"]
+        num_can = len(candidates)
+        if num_can > 0:
+            f_out = open("%s/sample_us_with_%d_candidates.json" % (out_directory, num_can), "a", encoding="utf-8")
+            f_out.write("%s\n" % json.dumps(sample))
+            f_out.close()
+        ind += 1
+
+
+def get_initial_landmarks(inp_path):
     file = open(inp_path, "r")
-    list_page_info = []
-    count_landmarks = 0
+    sample_list = []
 
     dict_landmarks_total = {}
     for line in file:
-        list_page_info.append(json.loads(line))
-        if len(list_page_info) == 10000:
-            dict_landmarks = iterative_inference_machine.generate_landmarks(list_page_info)
-            # print(json.dumps(dict_landmarks, indent=2))
+        sample = json.loads(line.strip("\n"))
+        sample_list.append(sample)
+
+        if len(sample_list) == 10000:
+            dict_landmarks = iterative_inference_machine.generate_initail_landmarks(sample_list)
             len_lm = len(list(dict_landmarks.keys()))
             dict_landmarks_total = {**dict_landmarks, **dict_landmarks_total}
             print(len_lm)
-            count_landmarks += len_lm
-            list_page_info.clear()
+            sample_list.clear()
 
-    dict_landmarks = iterative_inference_machine.generate_landmarks(list_page_info)
+    dict_landmarks = iterative_inference_machine.generate_initail_landmarks(sample_list)
     len_lm = len(list(dict_landmarks.keys()))
     print(len_lm)
-    print(len(dict_landmarks_total))
-    json.dump(dict_landmarks_total, open(out_path, "w"))
+    dict_landmarks_total = {**dict_landmarks, **dict_landmarks_total}
 
+    count_landmarks = len(dict_landmarks_total)
     print("total: %d" % count_landmarks)
+    return dict_landmarks_total
+
+
+def check_landmarks(dict_landmarks):
+    dict_landmarks_filtered = {}
+
+    count = 0
+    for key, val in dict_landmarks.items():
+        if network_measurer.ping(key, 1):
+            dict_landmarks_filtered[key] = val
+        count += 1
+        logger.info("--------------------%d-------------------" % count)
+    return dict_landmarks_filtered
+
+
+def match_guards_to_candidates(in_file_path, out_file_path, index_start):
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+    f_out = open(out_file_path, "a", encoding="utf-8")
+
+    dict_landmarks = json.load(open("../Sources/landmarks_fr_cyberspace_2.json", "r"))
+    dict_landmarks = check_landmarks(dict_landmarks)
+
+    ind = 0
+    for line in f_inp:
+        print("-------------ind: %d------------" % ind)
+        if ind < index_start or line.strip() == "\n":
+            print("-----------------ind: %d pass--------------------" % ind)
+            ind += 1
+            continue
+
+        try:
+            sample = json.loads(line.strip("\n"))
+        except Exception:
+            continue
+
+        sample = iterative_inference_machine.match_guard_to_candidates(sample, dict_landmarks, 2000)
+        f_out.write("%s\n" % json.dumps(sample))
+        ind += 1
+    f_out.close()
+
+
+def get_measurment_tasks_for_inference(in_file_path, index_start):
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+    ind = 0
+    probes = json.load(open("../Sources/landmarks_ripe_us_2.json", "r"))
+    probe_list = [{"id": val["id"], "longitude": val["longitude"], "latitude": val["latitude"]} for key, val in probes.items()]
+    count = 0
+
+    task_list = []
+    for line in f_inp:
+        print("-------------ind: %d------------" % ind)
+        if ind < index_start or line.strip() == "\n":
+            print("-----------------ind: %d pass--------------------" % ind)
+            ind += 1
+            continue
+
+        try:
+            sample = json.loads(line.strip("\n"))
+        except Exception:
+            continue
+
+        if sample["status"] == enumeration.SAMPLE_STATUS_RTBI:
+            count += 1
+            measurement_target_list = [sample["ip"], ]
+            guard_candidate_list = []
+            for can in sample["candidates_merged"]:
+                measurement_target_list.append(can["guard"]["guard"]["ip"])
+                guard_candidate_list.append({"guard_ip": can["guard"]["guard"]["ip"], "candidate_coordinate": {"longitude": can["longitude"], "latitude": can["latitude"]}})
+
+            coarse_grained_location = sample["result_fr_commercial_tool"]
+            sorted(probe_list, key=lambda x: geo_distance_calculator.get_geodistance_btw_2coordinates(x["longitude"], x["latitude"], coarse_grained_location["longitude"], coarse_grained_location["latitude"]))
+            fin_probe_list = probe_list[:100]
+            random.shuffle(fin_probe_list)
+            fin_probe_list = fin_probe_list[:25]
+            fin_probe_list = [str(pb["id"]) for pb in fin_probe_list]
+            tag = "inference-" + sample["ip"]
+
+            task_list.append({"target_ip": sample["ip"], "guard_n_candidate_list": guard_candidate_list, "probe_list": fin_probe_list, "tag": tag})
+        ind += 1
+    return task_list
+
+
+def measure(num_candidates, task_list, start_ind):
+    batch_num = 100 // (num_candidates + 1)
+    max_num_per_account = 5000 // (num_candidates + 1)
+    for ind, task in enumerate(task_list[start_ind:]):
+        measurement_target_list = [guard["guard_ip"] for guard in task["guard_n_candidate_list"]]
+        measurement_target_list.append(task["target_ip"])
+
+        account_ind = (ind + 1) // max_num_per_account
+        if (account_ind + 1) > len(st_tool.RIPE_ACCOUNT_KEY):
+            logger.war("hit the daily quota limitation ..., stop at ind: %d" % (start_ind + ind))
+        account = st_tool.RIPE_ACCOUNT_KEY[account_ind]
+        ripe = network_measurer.RipeAtlas(account["account"], account["key"])
+
+        zone = pytz.country_timezones('us')[0]
+        tz = pytz.timezone(zone)
+        start_time = datetime.datetime.now(tz).timestamp() + 120 + ((ind + 1) // batch_num) * 900
+
+        res = ripe.measure_by_ripe_oneoff_ping(measurement_target_list, task["probe_list"], start_time, [task["tag"],],
+                                               "for inference")
+        print(res)
+        print(res.text)
+    pass
+
+
+def get_organization_name(in_file_path, index_start):
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+
+    ind = 0
+    org_set = set()
+    for line in f_inp:
+        print("-------------ind: %d------------" % ind)
+        if ind < index_start or line.strip() == "\n":
+            print("-----------------ind: %d pass--------------------" % ind)
+            ind += 1
+            continue
+
+        try:
+            sample = json.loads(line.strip("\n"))
+        except Exception:
+            continue
+
+        res_page_info = sample["result_fr_page"]
+        res_registration = sample["result_fr_registration_db"]
+        # org_set.add(res_page_info["query"])
+        # org_set.add(res_registration["query"])
+
+        for can in res_page_info["candidates"]:
+            org_set.add(can["org_name"])
+
+        for can in res_registration["candidates"]:
+            org_set.add(can["org_name"])
+        ind += 1
+
+    return list(org_set)
 
 
 if __name__ == "__main__":
-
-
     # # get coordinate from several commercial dbs
     # incorporate_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.5.json",
     #                                 "H:\\Projects/data_preprocessed/http_80_us_0.6.json", 0)
@@ -376,8 +542,8 @@ if __name__ == "__main__":
     #                           "H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
     #                           417000) #
 
-    # # filter duplicate
-    # filter_out_duplicates("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.5.json")
+    # filter duplicate
+    # filter_out_invalid("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.5.json")
     #
     #
     # # find samples in us
@@ -388,47 +554,82 @@ if __name__ == "__main__":
     # incorporate_candidates_fr_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
     #                                           "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 43326, 53212)
 
-    # get initial landmarks
-    # for i in range(8):
-    #     num = i + 2
-    #     inp_path = "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % num
-    #     out_path = "../Sources/landmarks_fr_cyberspace_0.%d.json" % num
-    #     get_initial_landmarks(inp_path, out_path)
-
-    # multiprocessing missions
-    from multiprocessing import Pool
-
-    p = Pool(9)
-    start_indices = [0 for _ in range(9)]
-    for i in range(9):
-        p.apply_async(merge_near_candidates, args=("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 1),
-                                                  "H:\\Projects/data_preprocessed/samples_us_with_candidates_1.%d.json" % (i + 1),
-                                                                       start_indices[i], i))
-
-    p.close()
-    p.join()
-
-    # tag = [3]
-    # p = Pool(8)
-    # ind = 310
-    # rec = [32000, 32000, 32000, 26836, 32000, 32000, 32000, 25515]
-    # for i in tag:
-    #     start = ind + i * 32000 + rec[i]
-    #     end = ind + (i + 1) * 32000
-    #     if start == end:
-    #         print("start: %d, end: %d, the start is the same as the end, canceled" % (start, end))
-    #         continue
-    #     print("start: %d, end: %d" % (start, end))
-    #     p.apply_async(search_candidates_by_web_mapping_services, args=("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
-    #                                               "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 2),
-    #                                                                    start, end, i,))
+    # # merge candidates
+    # p = Pool(9)
+    # start_indices = [0 for _ in range(9)]
+    # for i in range(9):
+    #     p.apply_async(merge_near_candidates, args=("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 1),
+    #                                               "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % (i + 1),
+    #                                                                    start_indices[i], i))
+    #
     # p.close()
     # p.join()
 
-    # tag = [3]
-    # for i in tag:
-    #     file = open("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 2), "r")
-    #     list_p = [line for line in file]
-    #     print(len(list_p))
+    # # slice sample file by the number of candidates
+    # start_indices = [0 for _ in range(9)]
+    # for i in range(9):
+    #     num = i + 1
+    #     inp_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % num
+    #     slice_sample_file_by_num_of_candidates(inp_path, "H:\\Projects/data_preprocessed/sample_us_with_x_candidates", start_indices[i])
 
+
+    # start_indices = [0 for _ in range(9)]
+    # pool = Pool(9)
+    # for i in range(9):
+    #     num = i + 1
+    #     inp_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % num
+    #     out_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_3.%d.json" % num
+    #     pool.apply_async(filter_out_invalid, args=(inp_path, out_path,))
+    # pool.close()
+    # pool.join()
+
+    # get org names
+    # org_name_list_total = []
+    count = 0
+    for i in range(9):
+        file = open("H:\\Projects/data_preprocessed/samples_us_with_candidates_3.%d.json" % (i + 1), "r")
+        for line in file:
+            count += 1
+    print(count)
+
+    # dict_org_name = json.load(open("../Sources/org_names.json", "r"))
+    # uni_list = json.load(open("../Sources/universities_us_0.9.json", "r"))
+    # sch_list = json.load(open("../Sources/schools_us_0.5.json", "r"))
+    # print(len(dict_org_name))
+    # for uni in uni_list:
+    #     dict_org_name[uni["university_name"]] = 0
+    # for sch in sch_list:
+    #     dict_org_name[sch["school_name"]] = 0
+    # print(len(dict_org_name))
+    # json.dump(dict_org_name, open("../Sources/org_names.json", "w"))
+
+    # # get initial landmarks
+    # ip2coord_total = {}
+    # for i in range(9):
+    #     num = i + 1
+    #     inp_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % num
+    #     ip2coord = get_initial_landmarks(inp_path)
+    #     ip2coord_total = {**ip2coord_total, **ip2coord}
+    #
+    # print(len(ip2coord_total))
+    # json.dump(ip2coord_total, open("../Sources/landmarks_fr_cyberspace_1.json", "w"))
+
+    # ip2coord = get_initial_landmarks("H:\\Projects/data_preprocessed/sample_us_with_x_candidates/sample_us_with_1_candidates.json")
+    # print(len(ip2coord))
+    # json.dump(ip2coord, open("../Sources/landmarks_fr_cyberspace_1.json", "w"))
+
+    # # check landmarks by ping
+    # dict_landmarks = json.load(open("../Sources/landmarks_fr_cyberspace_1.json", "r"))
+    # dict_landmarks = check_landmarks(dict_landmarks)
+    # json.dump(dict_landmarks, open("../Sources/landmarks_fr_cyberspace_2.json", "w"))
+
+    # # match guards to their corresponding candidates
+    # match_guards_to_candidates("H:\\Projects/data_preprocessed/sample_us_with_x_candidates/sample_us_with_2_candidates.json", "H:\\Projects/data_preprocessed/sample_us_with_x_candidates_guards_matched/sample_us_with_2_candidates_guards_matched.json", 0)
+
+    # # measure the target and guards and infer
+    # task_list = get_measurment_tasks_fot_inference("H:\\Projects/data_preprocessed/sample_us_with_x_candidates_guards_matched/sample_us_with_2_candidates_guards_matched.json", 0)
+    # json.dump(task_list, open("../Sources/tasks/task_list_2_can.json", "w"))
+
+    # task_list = json.load(open("../Sources/tasks/task_list_2_can.json", "r"))
+    # measure(2, task_list, 0)
     pass

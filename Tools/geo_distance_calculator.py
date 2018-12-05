@@ -45,11 +45,8 @@ def get_stdev_coordinates(coordinates):
 
 
 if __name__ == "__main__":
-    coordinates = [{"longitude": -122.0236615, "latitude": 37.4092265},
-                   {"longitude": -122.0144237, "latitude": 37.4160916},
-                   {"longitude": -121.8942373, "latitude": 37.3801141},
-                   ]
-    print(get_stdev_coordinates(coordinates))
+    res = get_geodistance_btw_2coordinates(-87.858491, 41.926827, -87.63224989999999, 41.87776059999999)
+    print(res)
     pass
 
 

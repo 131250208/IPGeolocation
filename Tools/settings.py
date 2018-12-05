@@ -15,7 +15,8 @@ DRIVER_WAITING_TIME = 60
 
 # measurement by Ripe
 RIPE_KEY_O = "4a2268a2-17ad-42ea-9f82-16a92d0efeb5"
-RIPE_ACCOUNT_KEY = [{
+RIPE_ACCOUNT_KEY = [
+    {
         "account": "wychengpublic@163.com",
         "key": "4a2268a2-17ad-42ea-9f82-16a92d0efeb5",
     },

@@ -22,14 +22,6 @@ def tokenize(text):
     return pattern.findall(text)
 
 
-def extract_addr(html):
-    if "address" not in html:
-        return []
-    soup = purifier.get_pure_soup_fr_html(html)
-    list_addr = soup.select("address")
-    return [purifier.prettify_text(addr.text) for addr in list_addr]
-
-
 def extract_copyright_info(soup):
     # copyright extracting
     list_copyright_info = []
@@ -187,15 +179,6 @@ def get_org_info_fr_pageinfo(html, url):
     :param url:
     :return:
     '''
-    # # get addr first
-    # list_addr = extract_addr(html)
-    # if len(list_addr) > 1:
-    #     list_addr = sorted(list_addr, key=lambda item: len(item), reverse=True)
-    #
-    # for addr in list_addr:
-    #     yield addr
-
-    # get ZIP code
 
     # get organization info
     soup = purifier.get_pure_soup_fr_html(html)

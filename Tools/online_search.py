@@ -27,11 +27,11 @@ def quote(queryStr):
 
 
 #  url = 'https://www.bing.com/search?q=%s&setmkt=en-us&setlang=en-us' % queryStr
-def google_search(queryStr):
+def google_search(queryStr, proxy_type="None"):
     queryStr = quote(queryStr)
-    url = 'https://www.google.com/search?q=%s' % queryStr
+    url = 'https://www.google.com/search?biw=1920&safe=active&hl=en&q=%s&oq=%s' % (queryStr, queryStr)
 
-    response = rt.try_best_request_get(url, 5, "google_search", "abroad")
+    response = rt.try_best_request_get(url, 5, "google_search", proxy_type)
     html = response.text
     return html
 
@@ -75,6 +75,9 @@ def google_kg_search(query_str):
 
 
 if __name__ == '__main__':
+
+    print(google_search("alibaba", "spider_abroad"))
+    # open("../Sources/google_search.html", "w", encoding="utf-8").write(text)
     pass
 
 
