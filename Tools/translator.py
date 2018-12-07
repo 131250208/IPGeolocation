@@ -165,7 +165,7 @@ def detect_language(ori_text):
 
 
 def get_proxy():
-    proxy_str = requests.get(settings.PROXY_SPIDER_API).text.strip()
+    proxy_str = requests.get(settings.PROXY_DATA5U_SPIDER_API).text.strip()
     proxies = {"http": "http://%s" % proxy_str,
                "https": "http://%s" % proxy_str,}
     print(proxies)

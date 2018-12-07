@@ -2,7 +2,7 @@ from LandmarksCollector import owner_name_extractor as oi
 import json
 from LandmarksCollector import settings as st_lmc, iterative_inference_machine
 from itertools import combinations
-from Tools import geo_distance_calculator, network_measurer, settings as st_tool, requests_tools as rt
+from Tools import geo_distance_calculator, network_measurer, settings as st_tool, requests_tools as rt, geoloc_commercial_db, web_mapping_services, other_tools, ner_tool
 import random
 import pytz
 import datetime
@@ -10,6 +10,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import re
+import pyprind
+
 
 def test_org_extracter():
     landmarks = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
@@ -63,18 +65,110 @@ def extract_state_names():
     print(json.dumps(list_abbr))
 
 
+def extract_org_names_batch(ip_dict_path, org_name_dict_path):
+    ip_dict = json.load(open(ip_dict_path, "r"))
+    try:
+        org_name_dict = json.load(open(org_name_dict_path, "r"))
+    except Exception:
+        org_name_dict = {}
+
+    ip_list = [ip for ip in ip_dict.keys() if ip_dict[ip] == 0]
+    try:
+        for ip in ip_list:
+            locations = geoloc_commercial_db.get_locations_info_by_commercial_tools(ip)
+            location_list = [locations["ipip"], locations["ipplus"], locations["geolite2"],]
+            location_list = geo_distance_calculator.merge_near_locations(location_list, 20000)
+            query_list = ["company", "institution", "organization", "school", "university", "academic", "government"]
+            for loc in location_list:
+                for query in query_list:
+                    org_list = web_mapping_services.google_map_nearby_search(query, loc["longitude"], loc["latitude"], 50000)
+                    for org in org_list:
+                        org_name = org["org_name"]
+                        if org_name not in org_name_dict:
+                            org_name_dict[org_name] = 0
+            ip_dict[ip] = 1
+    except Exception:
+        json.dump(ip_dict, open(ip_dict_path, "w"))
+        json.dump(org_name_dict, open(org_name_dict_path, "w"))
+
+
+def get_loc_list(ip_dict_path, loc_list_path):
+    ip_dict = json.load(open(ip_dict_path, "r"))
+    ip_list = [ip for ip in ip_dict.keys() if ip_dict[ip] == 0]
+    loc_list_total = []
+    len_ip_list = len(ip_list)
+    for ind, ip in enumerate(ip_list[:1000]):
+        locations = geoloc_commercial_db.get_locations_info_by_commercial_tools(ip)
+        loc_list_total.append(locations["ipip"])
+        loc_list_total.append(locations["ipplus"])
+        loc_list_total.append(locations["geolite2"])
+        # location_list = [locations["ipip"], locations["ipplus"], locations["geolite2"], ]
+        # loc_list_total += location_list
+        print("loc_pro: %d/%d" % (ind + 1, len_ip_list))
+
+    t1 = time.time()
+    loc_list_total = geo_distance_calculator.merge_near_locations(loc_list_total, 20000)
+    print(time.time() - t1)
+    print("ip_num: %d, loc_num: %d" % (len_ip_list, len(loc_list_total)))
+    json.dump(loc_list_total, open(loc_list_path, "w"))
+
+
+def frange(x, y, jump):
+    while x < y:
+        yield x
+        x += jump
+    yield y
+
 
 if __name__ == "__main__":
+    # list_lon = list(frange(-125.75583, -66.01197, 0.15))
+    # list_lat = list(frange(25.80139, 49.05694, 0.15))
+    # coordinates = [{"longitude": lon, "latitude": lat, "done": 0} for lon in list_lon for lat in list_lat]
+    #
+    # list_lon = list(frange(-125.00583, -66.76197, 0.15))
+    # list_lat = list(frange(25.05139, 49.80694, 0.15))
+    # coordinates_2 = [{"longitude": lon, "latitude": lat, "done": 0} for lon in list_lon for lat in list_lat]
+    # coordinates += coordinates_2
+    # print(len(coordinates))
+    #
+    # chunks = other_tools.chunks_avg(coordinates, 8)
+    # for ind, chunk in enumerate(chunks):
+    #     json.dump(chunk, open("../Sources/loc/loc_%d.json" % ind, "w"))
+
+    org_dict_t = {}
+    for i in range(8):
+        org_dict = json.load(open("../Sources/org_names/org_names_full_%d.json" % i, "r"))
+        print(len(org_dict))
+        org_dict_t = {**org_dict_t, **org_dict}
+
+    print(len(org_dict_t))
+    org_list = json.load(open("../Sources/org_names/org_name_list.json", "r"))
+    for org in org_list:
+        org_dict_t[org] = 0
+
+    org_dict_ext = {}
+    for key in org_dict_t.keys():
+        ess_list = ner_tool.extract_essentials_fr_org_full_name(key)
+        for ess in ess_list:
+            org_dict_ext[ess] = 0
+
+    org_dict_t = {**org_dict_t, **org_dict_ext}
+    print(len(org_dict_t))
+
+    json.dump(org_dict_t, open("../Sources/org_names/org_name_dict/org_name_dict_1.json", "w"))
+
+    # print(re.split("\s(-)\s|,|\s-|-\s|:\s", "dfsd -df, sdfs–dfsd - df: sdfsd"))
+
     # url = "https://hidemyna.me/en/proxy-list/?country=US&maxtime=1500&type=s#list"
 
     # !/usr/bin/env python
-    import urllib.request
-
-    opener = urllib.request.build_opener(
-    urllib.request.ProxyHandler(
-            {'http': 'http://lum-customer-hl_95db9f83-zone-static:m6yzbkj85sou@zproxy.lum-superproxy.io:22225'}))
-    print(opener.open('http://lumtest.com/myip.json').read())
-    print(opener.open("http://www.baidu.com").read())
+    # import urllib.request
+    #
+    # opener = urllib.request.build_opener(
+    # urllib.request.ProxyHandler(
+    #         {'http': 'http://lum-customer-hl_95db9f83-zone-static:m6yzbkj85sou@zproxy.lum-superproxy.io:22225'}))
+    # # print(opener.open('http://lumtest.com/myip.json').read())
+    # print(opener.open("https://www.google.com").read())
 
     # probes = json.load(open("../Sources/landmarks_ripe_us.json", "r"))
     # dict_landmarks = json.load(open("../Sources/landmarks_fr_cyberspace_1.json", "r"))

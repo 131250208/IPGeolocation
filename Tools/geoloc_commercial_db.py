@@ -135,7 +135,34 @@ def ip_geolocation_ipplus360(ip):
     }
 
 
-def get_location_info_by_commercial_tools(ip):
+def get_locations_info_by_commercial_tools(ip):
+    ipinfo_fr_ipplus = ip_geolocation_ipplus360(ip)  # free trial, one month expire, low precision
+    ipinfo_fr_ipip = ip_geolocation_ipip(ip)
+    ipinfo_fr_geolite2 = ip_geolocation_geolite2(ip)  # free, low precision
+
+    return {
+            "ipplus": {
+                "coarse_grained_region": "%s, %s, %s" %
+                                         (ipinfo_fr_ipplus["country"], ipinfo_fr_ipplus["region"],
+                                          ipinfo_fr_ipplus["city"]),
+                "longitude": ipinfo_fr_ipplus["longitude"],
+                "latitude": ipinfo_fr_ipplus["latitude"]},
+            "ipip": {
+                "coarse_grained_region": "%s, %s, %s" %
+                                         (ipinfo_fr_ipip["country"], ipinfo_fr_ipip["region"],
+                                          ipinfo_fr_ipip["city"]),
+                "longitude": ipinfo_fr_ipip["longitude"],
+                "latitude": ipinfo_fr_ipip["latitude"]},
+            "geolite2": {
+                "coarse_grained_region": "%s, %s, %s" %
+                                         (ipinfo_fr_geolite2["country"], ipinfo_fr_geolite2["region"],
+                                          ipinfo_fr_geolite2["city"]),
+                "longitude": ipinfo_fr_geolite2["longitude"],
+                "latitude": ipinfo_fr_geolite2["latitude"], },
+            }
+
+
+def get_location_info_by_commercial_tools_unanimous(ip):
     ipinfo_fr_ipplus = ip_geolocation_ipplus360(ip)  # free trial, one month expire, low precision
     ipinfo_fr_ipip = ip_geolocation_ipip(ip)
     ipinfo_fr_geolite2 = ip_geolocation_geolite2(ip)  # free, low precision
@@ -158,9 +185,29 @@ def get_location_info_by_commercial_tools(ip):
                                          (ipinfo_fr_geolite2["country"], ipinfo_fr_geolite2["region"], ipinfo_fr_geolite2["city"]),
                 "country": ipinfo_fr_ipip["country"],
                 "stdev": stdev,
-                "longitude": exp_coordinate["longitude"], "latitude": exp_coordinate["latitude"]}
-    else:
-        # print("city_geolite: %s, city_ipplus: %s, city_ipip: %s" % (ipinfo_fr_geolite2["city"], ipinfo_fr_ipplus["city"], ipinfo_fr_ipip["city"]))
-        pass
+                "longitude": exp_coordinate["longitude"],
+                "latitude": exp_coordinate["latitude"],
+                "coordinates": {
+                    "ipplus": {
+                        "coarse_grained_region": "%s, %s, %s" %
+                                                 (ipinfo_fr_ipplus["country"], ipinfo_fr_ipplus["region"],
+                                                  ipinfo_fr_ipplus["city"]),
+                        "longitude": ipinfo_fr_ipplus["longitude"],
+                        "latitude": ipinfo_fr_ipplus["latitude"]},
+                    "ipip": {
+                        "coarse_grained_region": "%s, %s, %s" %
+                                                 (ipinfo_fr_ipip["country"], ipinfo_fr_ipip["region"],
+                                                  ipinfo_fr_ipip["city"]),
+                        "longitude": ipinfo_fr_ipip["longitude"],
+                        "latitude": ipinfo_fr_ipip["latitude"]},
+                    "geolite2": {
+                        "coarse_grained_region": "%s, %s, %s" %
+                                                 (ipinfo_fr_geolite2["country"], ipinfo_fr_geolite2["region"],
+                                                  ipinfo_fr_geolite2["city"]),
+                        "longitude": ipinfo_fr_geolite2["longitude"],
+                        "latitude": ipinfo_fr_geolite2["latitude"],},
+                    },
+                }
+
     return None
 

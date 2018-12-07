@@ -38,7 +38,7 @@ def extract_copyright_info(soup):
     return list_copyright_info
 
 
-def extract_logo(soup, url):
+def extract_logo(soup, url=None):
     # logo extracting
     list_image = soup.select("img")
     list_logo = []
@@ -61,13 +61,14 @@ def extract_logo(soup, url):
 
         if "logo" in str_indi.lower():
             # link host with path of the img, pay attention to relative path and those already include scheme
-            img_src = rt.recover_url(url, img_src)
+            if url is not None:
+                img_src = rt.recover_url(url, img_src)
             list_logo.append({"src": img_src, "alt": img_alt, "title": img_title})
     return list_logo
 
 
 def extract_org_fr_logo(soup, url):
-    reduntant_words = settings.REDUNDANT_LIST_QUERY
+    reduntant_words = settings.COMPANY_ABBR
     compile_redundant_str = "(%s)" % "|".join(reduntant_words)
 
     list_logo = extract_logo(soup, url)
@@ -125,7 +126,7 @@ def extract_org_fr_logo(soup, url):
 def extract_org_fr_copyright(soup):
     list_copyright_info = extract_copyright_info(soup)
 
-    compile_redundant_str = "(%s)" % "|".join(settings.REDUNDANT_LIST_QUERY + settings.REDUNDANT_LIST_COPYRIGHT)
+    compile_redundant_str = "(%s)" % "|".join(settings.COMPANY_ABBR + settings.REDUNDANT_LIST_COPYRIGHT)
 
     list_entities_fr_cpy = []
     for copyright_info in list_copyright_info:
@@ -150,15 +151,12 @@ def extract_org_fr_copyright(soup):
 
 
 def get_title(soup):
-    reduntant_words = settings.REDUNDANT_LIST_QUERY
-    compile_redundant_str = "(%s)" % "|".join(reduntant_words)
-
     title = ""
     tag_title = soup.select_one("title")
     if tag_title is not None:
         title = tag_title.text.strip()
-    title_str = re.sub(compile_redundant_str, "", title.strip(), flags=re.I)
-    return title_str
+
+    return title
 
 
 def concatenate_entities(list_entities):

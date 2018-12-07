@@ -1,12 +1,23 @@
-# request_tools
-PROXY_ABROAD = "127.0.0.1:1080"
-
-PROXY_SPIDER_API = "http://api.ip.data5u.com/dynamic/get.html?order=53b3de376027aa3f699dc335d2bc0674&sep=3"
-PROXY = True
-TIMEOUT = 20
+# proxies
+PROXY_LOC_SHADOW = "127.0.0.1:1080"
+PROXY_LUMI_ACCOUNT = "lum-customer-hl_95db9f83-zone-zone1"
+PROXY_LUMI_PASS = "1bgiacxdl2xa"
+PROXY_DATA5U_SPIDER_API = "http://api.ip.data5u.com/dynamic/get.html?order=53b3de376027aa3f699dc335d2bc0674&sep=3"
+PROXY_DATA5U_ABROAD_SPIDER_API = "http://api.ip.data5u.com/api/get.shtml?order=53b3de376027aa3f699dc335d2bc0674&num=100&area=%E7%BE%8E%E5%9B%BD&carrier=0&protocol=0&an3=3&sp1=1&sp2=2&sort=3&system=1&distinct=0&rettype=1&seprator=%0D%0A"
+# PROXY = True
+#
+# TIMEOUT = 20
 
 # geolocation
-GOOGLE_API_KEY = "AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk"
+GOOGLE_API_KEY = "AIzaSyAyvxPWCX-s2CrEoww7_wonrKPWTrEktCc"
+# wang yu cheng
+# AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk - MyProject
+# AIzaSyAEo5rsZstUuAg5ybhXe8B8HbV60fKv-QM - IPGeolocation1
+# AIzaSyAyvxPWCX-s2CrEoww7_wonrKPWTrEktCc - IPGeolocation2
+
+# wang xu
+# AIzaSyBBdxZIv7AmVLNT3-VoePq9o22fvyyEy5Y - 9
+# AIzaSyBlqR311Rwas43z7pOdtqu11mITiE1-fJc - 1
 IP_INFO_IPIP_PATH = "../Sources/ip_gb_en.datx"
 
 
@@ -62,3 +73,8 @@ RIPE_ACCOUNT_KEY = [
 BAIDU_API_KEY = "24.41d0976869d7ae95714d188117a8b17c.2592000.1542006180.282335-14421471"
 BAIDU_API_OCR_GENERAL = "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic"
 BAIDU_API_OCR_ACCURATE = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
+
+# ner tool
+# from nltk.corpus import stopwords
+# words = stopwords.words('english')
+STOP_WORDS = ["Inc", "and", "&", "of", "the", "at"]

@@ -10,12 +10,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 logger = mylogger.Logger("../Log/request_tools.py.log")
-
+import json
 
 class MyChrome(webdriver.Chrome):
     def __init__(self):
         chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument('--proxy-server=%s' % settings.PROXY_ABROAD)
+        chrome_options.add_argument('--proxy-server=%s' % settings.PROXY_LOC_SHADOW)
         # chrome_options.add_argument("--headless")
         prefs = {'profile.managed_default_content_settings.images': 2}
         chrome_options.add_experimental_option('prefs', prefs)
@@ -63,33 +63,41 @@ headers = {
     "accept": "*/*;q=0.8",
     "accept-encoding": "gzip, deflate, br",
     "Content-Type": "*/*",
+    "referer": "https://www.google.com/",
 }
 
 
 def get_proxies_spider():
-    proxy_str = requests.get(settings.PROXY_SPIDER_API).text.strip()
+    proxy_str = requests.get(settings.PROXY_DATA5U_SPIDER_API).text.strip()
     proxies = {"http": "http://%s" % proxy_str,
                "https": "http://%s" % proxy_str, }
     return proxies
 
 
 def get_proxies_abroad():
-    proxies = {"http": "http://%s" % settings.PROXY_ABROAD,
-               "https": "http://%s" % settings.PROXY_ABROAD}
+    pro = settings.PROXY_LOC_SHADOW
+    proxies = {"http": "http://%s" % pro,
+               "https": "http://%s" % pro}
     return proxies
 
 
 def get_proxies_spider_abroad():
-    ip_port = "lum-customer-hl_95db9f83-zone-static:m6yzbkj85sou@zproxy.lum-superproxy.io:22225"
-    proxies = {"http": "http://%s" % ip_port,
-               "https": "http://%s" % ip_port}
+    proxies_str = requests.get(settings.PROXY_DATA5U_ABROAD_SPIDER_API).text.strip()
+    first_pro = proxies_str.split("\r\n")[0]
+    proxies = {"http": "http://%s" % first_pro,
+               "https": "http://%s" % first_pro, }
     return proxies
 
 
-proxies_dict = {"abroad": get_proxies_abroad(),
-                "spider": get_proxies_spider(),
-                "spider_abroad": get_proxies_spider_abroad(),
-                "None": None}
+def get_proxies(type):
+    if type == "abroad":
+        return get_proxies_abroad()
+    elif type == "spider":
+        return get_proxies_spider()
+    elif type == "spider_abroad":
+        return get_proxies_spider_abroad()
+    else:
+        return None
 
 
 def get_random_headers():
@@ -144,7 +152,7 @@ def try_best_request_post(url, data, maxtime, tag="-", proxy_type="None"):
     error_count = 0
     while True:
         try:
-            res = requests.post(url, data=data, headers=get_random_headers(), proxies=proxies_dict[proxy_type], timeout=10)
+            res = requests.post(url, data=data, headers=get_random_headers(), proxies=get_proxies(proxy_type), timeout=10)
             break
         except Exception as e:
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
@@ -160,7 +168,7 @@ def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
     error_count = 0
     while True:
         try:
-            res = requests.get(url, headers=get_random_headers(), proxies=proxies_dict[proxy_type], timeout=10)
+            res = requests.get(url, headers=get_random_headers(), proxies=get_proxies(proxy_type), timeout=10)
             break
         except Exception as e:
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
@@ -173,6 +181,44 @@ def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
                 return None
     return res
 
+
 if __name__ == "__main__":
-    # print(recover_url("http://www.cs.ccu.edu.tw/jjk/mll/jk.html", "home/index.html"))
+    url_lum = "http://lumtest.com/myip.json"
+    url_google = "https://www.google.com"
+    url_baidu = "https://www.baidu.com"
+    url_facebook = "https://www.facebook.com"
+    url_youtube = "https://www.youtube.com/"
+    # query = "Alibaba"
+    # url_query = 'https://www.google.com/search?biw=1920&safe=active&hl=en&q=%s&oq=%s' % ("ip", "ip")
+
+    res = try_best_request_get(url_lum, 5,)
+
+    print(res.text)
+
+    # import urllib.request
+    # import random
+    #
+    # url_google = "https://www.google.com"
+    # username = 'lum-customer-hl_95db9f83-zone-zone1-route_err-pass_dyn'
+    # password = '1bgiacxdl2xa'
+    # port = 22225
+    # session_id = random.random()
+    # super_proxy_url = ('http://%s-session-%s:%s@zproxy.lum-superproxy.io:%d' %
+    #                    (username, session_id, password, port))
+    # proxy_handler = urllib.request.ProxyHandler({
+    #     'http': super_proxy_url,
+    #     'https': super_proxy_url,
+    # })
+    # opener = urllib.request.build_opener(proxy_handler)
+    # opener.addheaders = \
+    #     [('User-Agent', 'Mozilla/5.0 (Windows NT 5.1; rv:31.0) Gecko/20100101 Firefox/31.0')]
+    # print('Performing request')
+    # print(opener.open(url_google).read())
+
+    # import urllib.request
+    #
+    # opener = urllib.request.build_opener(
+    #     urllib.request.ProxyHandler(
+    #         {'https': 'https://lum-customer-hl_95db9f83-zone-zone1:1bgiacxdl2xa@zproxy.lum-superproxy.io:22225'}))
+    # print(opener.open(url_query).read())
     pass

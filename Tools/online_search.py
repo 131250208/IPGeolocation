@@ -31,7 +31,7 @@ def google_search(queryStr, proxy_type="None"):
     queryStr = quote(queryStr)
     url = 'https://www.google.com/search?biw=1920&safe=active&hl=en&q=%s&oq=%s' % (queryStr, queryStr)
 
-    response = rt.try_best_request_get(url, 5, "google_search", proxy_type)
+    response = rt.try_best_request_get(url, 5, "google_search", proxy_type=proxy_type)
     html = response.text
     return html
 

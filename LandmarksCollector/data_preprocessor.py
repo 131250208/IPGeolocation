@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 from LandmarksCollector import settings, owner_name_extractor, iterative_inference_machine, enumeration
-from Tools import commercial_db, purifier, geo_distance_calculator, network_measurer, settings as st_tool
+from Tools import geoloc_commercial_db, purifier, geo_distance_calculator, network_measurer, settings as st_tool, web_mapping_services, ner_tool
 import logging
 logger = mylogger.Logger("../Log/data_preprocessor.py.log", clevel=logging.INFO)
 import time
@@ -158,7 +158,7 @@ def find_pages_us(infilepath, outfilepath, index):
             continue
         sample = get_brief_one(line) if is_valid(line) else None
         if sample is not None and check_title(sample["title"]):
-            location_info = commercial_db.get_location_info_by_commercial_tools(sample["ip"])
+            location_info = geoloc_commercial_db.get_location_info_by_commercial_tools_unanimous(sample["ip"])
             if location_info and location_info["country"] == "United States":
                 # print("idc: %s, isp: %s, region: %s, city: %s, lon: %s, lat: %s" % (ipip["idc"], ipip["isp"], ipip["region"], ipip["city"], ipip["longitude"], ipip["latitude"]) )
                 # print(sample)
@@ -262,7 +262,7 @@ def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
         print("-----------------ind: %d, count of ambiguous ip: %d--------------------" % (ind, count_ambiguity))
 
         ip = sample["ip"]
-        ipinfo_fr_commercial_tools = commercial_db.get_location_info_by_commercial_tools(ip) # filter
+        ipinfo_fr_commercial_tools = geoloc_commercial_db.get_location_info_by_commercial_tools_unanimous(ip) # filter
 
         if ipinfo_fr_commercial_tools is None:
             count_ambiguity += 1
@@ -279,20 +279,19 @@ def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
     f_out.close()
 
 
-def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, index_start, index_end, tag=None):
+def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, start_ind, tag=None, radius=20000):
     f_inp = open(in_file_path, "r", encoding="utf-8")
     f_out = open(out_file_path, "a", encoding="utf-8")
 
     ind = 0
 
     for line in f_inp:
-        print("-----------tag: %s------ind: %d------end: %d----------------" % (tag, ind, index_end))
-        if ind < index_start or line.strip() == "\n":
+        print("-----------tag: %s------ind: %d-------------" % (tag, ind))
+        if ind < start_ind or line.strip() == "\n":
             print("-----------------ind: %d pass--------------------" % ind)
             ind += 1
             continue
-        elif ind >= index_end:
-            break
+
         try:
             sample = json.loads(line)
         except Exception:
@@ -302,7 +301,7 @@ def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, 
         sample = iterative_inference_machine.search_candidates(sample,
                                                                   sample["result_fr_commercial_tool"]["longitude"],
                                                                   sample["result_fr_commercial_tool"]["latitude"],
-                                                                  20000)
+                                                                  radius)
         t2 = time.time()
 
         print(t2 - t1)
@@ -532,6 +531,61 @@ def get_organization_name(in_file_path, index_start):
     return list(org_set)
 
 
+def multiprocess(job, args_list, num_pro):
+    p = Pool(num_pro)
+
+    res_list = []
+    for i in range(len(args_list)):
+        res = p.apply_async(job, args=args_list[i])
+        res_list.append(res)
+    p.close()
+    p.join()
+
+    return [res.get() for res in res_list]
+
+
+def count(in_file_path, tag=None):
+    f_inp = open(in_file_path, "r", encoding="utf-8")
+    count = 0
+    for _ in f_inp:
+        count += 1
+    return {"tag": tag, "count": count}
+
+
+def extract_org_names_batch(loc_list_path, org_name_dict_path, tag=None):
+    loc_list = json.load(open(loc_list_path, "r"))
+    len_loc_list = len(loc_list)
+    try:
+        org_name_dict = json.load(open(org_name_dict_path, "r"))
+    except Exception:
+        org_name_dict = {}
+
+    query_list = ["company", "Internet", "Website", "institution", "organization", "school", "university", "academic", "government"]
+
+    try:
+        for ind, loc in enumerate(loc_list):
+            if loc["done"] == 1:
+                continue
+
+            for query in query_list:
+                org_list = web_mapping_services.google_map_nearby_search(query, loc["longitude"], loc["latitude"],
+                                                                         8000)
+                for org in org_list:
+                    org_name = org["org_name"]
+                    org_name_dict[org_name] = 0
+                    for ess in ner_tool.extract_essentials_fr_org_full_name(org_name):
+                        org_name_dict[ess] = 0
+
+            loc["done"] = 1
+            print("-------tag: %s-----pro: %d/%d, num_org_names: %d----------" % (tag, ind + 1, len_loc_list, len(org_name_dict)))
+            if (ind + 1) % 10 == 0:
+                json.dump(loc_list, open(loc_list_path, "w"))
+                json.dump(org_name_dict, open(org_name_dict_path, "w"))
+    except Exception:
+        json.dump(loc_list, open(loc_list_path, "w"))
+        json.dump(org_name_dict, open(org_name_dict_path, "w"))
+
+
 if __name__ == "__main__":
     # # get coordinate from several commercial dbs
     # incorporate_coordinate_fr_commercial_db("H:\\Projects/data_preprocessed/http_80_us_0.5.json",
@@ -542,6 +596,10 @@ if __name__ == "__main__":
     #                           "H:\\Projects/data_preprocessed/pages_us_with_copyright_0.3.json",
     #                           417000) #
 
+    # extract_org_names_batch("../Sources/loc/loc_0.json", "../Sources/org_names/org_names_0_test.json",)
+    args = [("../Sources/loc/loc_%d.json" % i, "../Sources/org_names/org_names_%d.json" % i, i) for i in range(8)]
+    multiprocess(extract_org_names_batch, args, 8)
+
     # filter duplicate
     # filter_out_invalid("H:\\Projects/data_preprocessed/http_80_us_0.2.json", "H:\\Projects/data_preprocessed/http_80_us_0.5.json")
     #
@@ -551,8 +609,17 @@ if __name__ == "__main__":
     #               "H:\\Projects/data_preprocessed/http_80_us_0.2.json", 51164702)# 3305K - 65K = 3240k saved
 
     # # search candidates
-    # incorporate_candidates_fr_web_mapping_services("H:\\Projects/data_preprocessed/pages_us_with_copyright_0.2.json",
-    #                                           "H:\\Projects/data_preprocessed/pages_us_with_candidates_0.1.json", 43326, 53212)
+    # incorporate_candidates_fr_web_mapping_services("H:\\Projects/data_preprocessed/samples_us_with_candidates_3.1.json",
+    #                                           "H:\\Projects/data_preprocessed/samples_us_with_candidates_4.1.json", radius=50000)
+
+    # args = [("H:\\Projects/data_preprocessed/samples_us_with_candidates_4.%d.json" % (i + 1), i + 1) for i in range(9)]
+    # res = multiprocess(count, args, 9)
+    # print(res)
+
+    # size_list = [30783, 16983, 18306, 18254, 15510, 18438, 18386, 18266, 14586]
+    # ind_list = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # args = [("H:\\Projects/data_preprocessed/samples_us_with_candidates_3.%d.json" % (i + 1), "H:\\Projects/data_preprocessed/samples_us_with_candidates_4.%d.json" % (i + 1), ind_list[i], i, 50000) for i in range(9)]
+    # multiprocess(incorporate_candidates_fr_web_mapping_services, args, 9)
 
     # # merge candidates
     # p = Pool(9)
@@ -572,36 +639,6 @@ if __name__ == "__main__":
     #     inp_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % num
     #     slice_sample_file_by_num_of_candidates(inp_path, "H:\\Projects/data_preprocessed/sample_us_with_x_candidates", start_indices[i])
 
-
-    # start_indices = [0 for _ in range(9)]
-    # pool = Pool(9)
-    # for i in range(9):
-    #     num = i + 1
-    #     inp_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_2.%d.json" % num
-    #     out_path = "H:\\Projects/data_preprocessed/samples_us_with_candidates_3.%d.json" % num
-    #     pool.apply_async(filter_out_invalid, args=(inp_path, out_path,))
-    # pool.close()
-    # pool.join()
-
-    # get org names
-    # org_name_list_total = []
-    count = 0
-    for i in range(9):
-        file = open("H:\\Projects/data_preprocessed/samples_us_with_candidates_3.%d.json" % (i + 1), "r")
-        for line in file:
-            count += 1
-    print(count)
-
-    # dict_org_name = json.load(open("../Sources/org_names.json", "r"))
-    # uni_list = json.load(open("../Sources/universities_us_0.9.json", "r"))
-    # sch_list = json.load(open("../Sources/schools_us_0.5.json", "r"))
-    # print(len(dict_org_name))
-    # for uni in uni_list:
-    #     dict_org_name[uni["university_name"]] = 0
-    # for sch in sch_list:
-    #     dict_org_name[sch["school_name"]] = 0
-    # print(len(dict_org_name))
-    # json.dump(dict_org_name, open("../Sources/org_names.json", "w"))
 
     # # get initial landmarks
     # ip2coord_total = {}

@@ -1,6 +1,8 @@
 from urllib import parse
 import json
-from Tools import settings, requests_tools as rt, geo_distance_calculator
+from Tools import settings, requests_tools as rt, geo_distance_calculator, mylogger
+import logging
+logger = mylogger.Logger("../Log/web_mapping_services.log", logging.INFO, logging.INFO)
 
 
 def quote(queryStr):
@@ -40,19 +42,34 @@ def google_map_place_search_bias(query_str, lng, lat, radius):
 
 def google_map_nearby_search(query_str, lng, lat, radius):
     api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?keyword=%s&location=%f,%f&radius=%d&key=%s" % (quote(query_str), lat, lng, radius, settings.GOOGLE_API_KEY)
-    res_json = rt.try_best_request_get(api, 999, "google_map_nearby_search", "abroad")
-    if res_json.status_code != 200:
-        return []
-    res_json = json.loads(res_json.text)
+
     list_candidates = []
-    for candidate in res_json["results"]:
-        list_candidates.append({
-            "org_name": candidate["name"],
-            "longitude": candidate["geometry"]["location"]["lng"],
-            "latitude": candidate["geometry"]["location"]["lat"],
-        })
+    while True:
+        res_json = rt.try_best_request_get(api, 999, "google_map_nearby_search", "abroad")
+        if res_json.status_code != 200:
+            break
+        res_json = json.loads(res_json.text)
+        if "error_message" in res_json and "exceeded" in res_json["error_message"]:
+            logger.info("api: google_map_nearby_search, exceeded daily limit")
+            raise Exception
+
+        for candidate in res_json["results"]:
+            list_candidates.append({
+                "org_name": candidate["name"],
+                "longitude": candidate["geometry"]["location"]["lng"],
+                "latitude": candidate["geometry"]["location"]["lat"],
+            })
+
+        next_page_token = res_json["next_page_token"] if "next_page_token" in res_json else None
+        if next_page_token is None:
+            break
+        api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=%s&key=%s" % (next_page_token, settings.GOOGLE_API_KEY)
 
     return list_candidates
+
+
+def google_map_nearby_search_nextpage():
+    api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=CpQCAgEAAFxg8o-eU7_uKn7Yqjana-HQIx1hr5BrT4zBaEko29ANsXtp9mrqN0yrKWhf-y2PUpHRLQb1GT-mtxNcXou8TwkXhi1Jbk-ReY7oulyuvKSQrw1lgJElggGlo0d6indiH1U-tDwquw4tU_UXoQ_sj8OBo8XBUuWjuuFShqmLMP-0W59Vr6CaXdLrF8M3wFR4dUUhSf5UC4QCLaOMVP92lyh0OdtF_m_9Dt7lz-Wniod9zDrHeDsz_by570K3jL1VuDKTl_U1cJ0mzz_zDHGfOUf7VU1kVIs1WnM9SGvnm8YZURLTtMLMWx8-doGUE56Af_VfKjGDYW361OOIj9GmkyCFtaoCmTMIr5kgyeUSnB-IEhDlzujVrV6O9Mt7N4DagR6RGhT3g1viYLS4kO5YindU6dm3GIof1Q&key=YOUR_API_KEY"
 
 
 def google_map_geocode_addr2coordinate(address):
@@ -151,5 +168,6 @@ if __name__ == "__main__":
     # api = google_map_static_map(list_prb)
     # print(api)
 
-    res = google_map_get_coordinate("kansas us")
+    res = google_map_nearby_search("Website", 116.3889, 39.9288, 50000)
     print(res)
+    print(len(res))

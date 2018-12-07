@@ -1,5 +1,5 @@
 import requests
-from Tools import requests_tools as rt, commercial_db,web_mapping_services
+from Tools import requests_tools as rt, geoloc_commercial_db,web_mapping_services
 import re
 from bs4 import BeautifulSoup
 import socket
@@ -47,8 +47,8 @@ def add_locinfo(landmarks_planetlab):
         ip = lm["ip"]
 
         try:
-            json_ipinfo = commercial_db.ip_geolocation_ipinfo(ip)
-            json_ipip = commercial_db.ip_geolocation_ipip(ip)
+            json_ipinfo = geoloc_commercial_db.ip_geolocation_ipinfo(ip)
+            json_ipip = geoloc_commercial_db.ip_geolocation_ipip(ip)
             city_ipinfo = json_ipinfo["city"]
             region_ipinfo = json_ipinfo["region"]
             country_ipinfo = json_ipinfo["country"]
