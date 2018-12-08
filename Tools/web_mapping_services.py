@@ -168,6 +168,6 @@ if __name__ == "__main__":
     # api = google_map_static_map(list_prb)
     # print(api)
 
-    res = google_map_nearby_search("Website", 116.3889, 39.9288, 50000)
+    res = google_map_nearby_search("research", -122.35689, 47.64288, 50000)
     print(res)
     print(len(res))

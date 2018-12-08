@@ -39,6 +39,8 @@ def exist_zipcode(html):
 
 
 def exist_owner_name(html):
+    org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
+
     soup = purifier.get_pure_soup_fr_html(html)
     title = owner_name_extractor.get_title(soup)
     logo_list = owner_name_extractor.extract_logo(soup)
@@ -63,7 +65,7 @@ def exist_owner_name(html):
     owner_info = re.sub(pattern, "", owner_info)
     owner_info = re.sub("[\n\r\s\t]+", " ", owner_info)
 
-    return ner_tool.org_name_extract(owner_info)
+    return ner_tool.org_name_extract(owner_info, org_name_dict)
 
 
 if __name__ == "__main__":

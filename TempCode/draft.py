@@ -1,6 +1,6 @@
 from LandmarksCollector import owner_name_extractor as oi
 import json
-from LandmarksCollector import settings as st_lmc, iterative_inference_machine
+from LandmarksCollector import settings as st_lmc, iterative_inference_machine, data_preprocessor
 from itertools import combinations
 from Tools import geo_distance_calculator, network_measurer, settings as st_tool, requests_tools as rt, geoloc_commercial_db, web_mapping_services, other_tools, ner_tool
 import random
@@ -11,7 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import pyprind
-
+from multiprocessing import Pool
 
 def test_org_extracter():
     landmarks = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
@@ -113,49 +113,37 @@ def get_loc_list(ip_dict_path, loc_list_path):
     json.dump(loc_list_total, open(loc_list_path, "w"))
 
 
-def frange(x, y, jump):
-    while x < y:
-        yield x
-        x += jump
-    yield y
+
+
 
 
 if __name__ == "__main__":
-    # list_lon = list(frange(-125.75583, -66.01197, 0.15))
-    # list_lat = list(frange(25.80139, 49.05694, 0.15))
-    # coordinates = [{"longitude": lon, "latitude": lat, "done": 0} for lon in list_lon for lat in list_lat]
+
+    dis = geo_distance_calculator.get_geodistance_btw_2coordinates(-125.75583, 25.80139, -125.75583, 25.85139)
+    print(dis)
+
+    # args = [("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 1), 0) for i in range(9)]
+    # res_list = data_preprocessor.multiprocess(data_preprocessor.get_organization_name, args, 9)
     #
-    # list_lon = list(frange(-125.00583, -66.76197, 0.15))
-    # list_lat = list(frange(25.05139, 49.80694, 0.15))
-    # coordinates_2 = [{"longitude": lon, "latitude": lat, "done": 0} for lon in list_lon for lat in list_lat]
-    # coordinates += coordinates_2
-    # print(len(coordinates))
+    # org_name_dict_index = {}
+    # for res in res_list:
+    #     for org_name in res:
+    #         org_name_dict_index[org_name] = 0
     #
-    # chunks = other_tools.chunks_avg(coordinates, 8)
-    # for ind, chunk in enumerate(chunks):
-    #     json.dump(chunk, open("../Sources/loc/loc_%d.json" % ind, "w"))
+    # json.dump(org_name_dict_index, open("../Sources/org_names/org_names_full_8.json", "w"))
 
-    org_dict_t = {}
-    for i in range(8):
-        org_dict = json.load(open("../Sources/org_names/org_names_full_%d.json" % i, "r"))
-        print(len(org_dict))
-        org_dict_t = {**org_dict_t, **org_dict}
-
-    print(len(org_dict_t))
-    org_list = json.load(open("../Sources/org_names/org_name_list.json", "r"))
-    for org in org_list:
-        org_dict_t[org] = 0
-
-    org_dict_ext = {}
-    for key in org_dict_t.keys():
-        ess_list = ner_tool.extract_essentials_fr_org_full_name(key)
-        for ess in ess_list:
-            org_dict_ext[ess] = 0
-
-    org_dict_t = {**org_dict_t, **org_dict_ext}
-    print(len(org_dict_t))
-
-    json.dump(org_dict_t, open("../Sources/org_names/org_name_dict/org_name_dict_1.json", "w"))
+    # sch_list = json.load(open("../Sources/schools_us_0.5.json", "r"))
+    # uni_list = json.load(open("../Sources/universities_us_0.8.json", "r"))
+    # planet_list = json.load(open("../Sources/landmarks_planetlab_raw.json", "r"))
+    # org_name_dict_index = {}
+    # for sch in sch_list:
+    #     org_name_dict_index[sch["school_name"]] = 0
+    # for uni in uni_list:
+    #     org_name_dict_index[uni["university_name"]] = 0
+    # for en in planet_list:
+    #     org_name_dict_index[en["organization"]] = 0
+    # print(len(org_name_dict_index))
+    # json.dump(org_name_dict_index, open("../Sources/org_names/org_names_full_9.json", "w"))
 
     # print(re.split("\s(-)\s|,|\s-|-\s|:\s", "dfsd -df, sdfs–dfsd - df: sdfsd"))
 
@@ -218,4 +206,7 @@ if __name__ == "__main__":
     # print(res)
     # print(res.text)
 
+    # str = ",.. sdfasdfIJNINS08iOF , JIOWE , .; "
+    # se = re.search("([0-9a-zA-Z]+.*[0-9a-zA-Z]+)", str)
+    # print(se.group(1))
     pass
