@@ -107,7 +107,8 @@ def get_all_styles(str):
 
 
 def tokenize_v1(str):
-    return [word for word in re.findall("[A-Za-z0-9]+", str) if len(word) > 1 and not re.match("\d+", word)]
+    token_list = [word for word in re.findall("[A-Za-z0-9]+", str) if len(word) > 1 and not re.match("\d+", word)]
+    return list(set(token_list))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 import requests
-from Tools import settings
+import settings
 import random
 import time
 import re
@@ -82,10 +82,13 @@ def get_proxies_abroad():
 
 
 def get_proxies_spider_abroad():
-    proxies_str = requests.get(settings.PROXY_DATA5U_ABROAD_SPIDER_API).text.strip()
-    first_pro = proxies_str.split("\r\n")[0]
+    # proxies_str = requests.get(settings.PROXY_DATA5U_ABROAD_SPIDER_API).text.strip()
+    # first_pro = proxies_str.split("\r\n")[0]
+    # first_pro = "217.29.62.222:24515"
+    # first_pro = "91.208.149.215:8000"
+    first_pro = "168.235.109.30:15105"
     proxies = {"http": "http://%s" % first_pro,
-               "https": "http://%s" % first_pro, }
+               "https": "https://%s" % first_pro, }
     return proxies
 
 
@@ -174,7 +177,7 @@ def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
             logger.war("reqest in %s went wrong..., tag: %s" % (sys._getframe().f_code.co_name, tag))
             logger.war(e)
             random.seed(time.time())
-            time.sleep(10 * random.random())
+            time.sleep(5 + 10 * random.random())
             error_count += 1
             if error_count > maxtime:
                 logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))
@@ -183,15 +186,23 @@ def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
 
 
 if __name__ == "__main__":
+    import urllib.request
+
     url_lum = "http://lumtest.com/myip.json"
     url_google = "https://www.google.com"
-    url_baidu = "https://www.baidu.com"
+    url_baidu = "https://ipv6.baidu.com"
     url_facebook = "https://www.facebook.com"
+    url_facebook_4 = "https://31.13.82.1"
     url_youtube = "https://www.youtube.com/"
     # query = "Alibaba"
     # url_query = 'https://www.google.com/search?biw=1920&safe=active&hl=en&q=%s&oq=%s' % ("ip", "ip")
 
-    res = try_best_request_get(url_lum, 5,)
+    # opener = urllib.request.build_opener(
+    #     urllib.request.ProxyHandler(
+    #         {'http': 'http://217.29.62.222:24515:N0ax4w:EjJ3EE'}))
+    # print(opener.open('http://lumtest.com/myip.json').read())
+
+    res = try_best_request_get(url_google, 5, proxy_type="spider")
 
     print(res.text)
 

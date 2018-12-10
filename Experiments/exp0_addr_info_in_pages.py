@@ -38,34 +38,14 @@ def exist_zipcode(html):
     return False
 
 
-def exist_owner_name(html):
-    org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
+org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
 
-    soup = purifier.get_pure_soup_fr_html(html)
-    title = owner_name_extractor.get_title(soup)
-    logo_list = owner_name_extractor.extract_logo(soup)
-    cpr = owner_name_extractor.extract_copyright_info(soup)
 
-    logo_info_list = []
-    for logo in logo_list:
-        name = logo["src"].split("/")[-1].split(".")[0]
-        word_list = other_tools.tokenize_v1(name)
-        if "ubuntu" in word_list:
-            pass
-        words = [word for word in word_list if word not in other_tools.get_all_styles("logo")]
-        name = " ".join(words)
-        name_info = " ".join(other_tools.get_all_styles(name))
-
-        logo_info_list.append("%s %s %s" % (logo["title"], logo["alt"], name_info))
-
-    logo_info = " ".join(logo_info_list)
-
-    owner_info = " ".join([title, logo_info, " ".join(cpr)])
-    pattern = "|".join(other_tools.get_all_styles("logo"))
-    owner_info = re.sub(pattern, "", owner_info)
-    owner_info = re.sub("[\n\r\s\t]+", " ", owner_info)
-
-    return ner_tool.org_name_extract(owner_info, org_name_dict)
+def exist_owner_name(owner_info_str):
+    res = ner_tool.extract_org_name_fr_str(owner_info_str, org_name_dict)
+    if len(res) > 0:
+        return True
+    return False
 
 
 if __name__ == "__main__":
@@ -76,6 +56,7 @@ if __name__ == "__main__":
     index_start = 0
     count_addr = 0
     count_zipcode = 0
+    count_owner_info = 0
     for line in f_inp:
         if ind < index_start or line.strip() == "\n":
             print("-----------------ind: %d pass--------------------" % ind)
@@ -91,7 +72,10 @@ if __name__ == "__main__":
         # if exist_zipcode(sample["html"]):
         #     count_zipcode += 1
         # print("------------addr: %d/%d-----zip: %d/%d-------" % (count_addr, ind + 1, count_zipcode, ind + 1))
-        res = exist_owner_name(sample["html"])
-        if len(res) > 0:
-            print(res)
+        owner_info_str = owner_name_extractor.extract_owner_info_str(sample["html"])
+        if exist_owner_name(owner_info_str):
+            count_owner_info += 1
+            # print("info_str: %s, \nowner_name: %s" % (owner_info_str, owner_name))
+
+        print("------------owner_info: %d/%d---------------" % (count_owner_info, ind + 1))
         ind += 1

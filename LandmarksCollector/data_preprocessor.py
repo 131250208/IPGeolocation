@@ -2,15 +2,16 @@ from Tools import mylogger
 from bs4 import BeautifulSoup
 import json
 import re
-from LandmarksCollector import settings, owner_name_extractor, iterative_inference_machine, enumeration
-from Tools import geoloc_commercial_db, purifier, geo_distance_calculator, network_measurer, settings as st_tool, web_mapping_services, ner_tool
+from LandmarksCollector import owner_name_extractor, iterative_inference_machine
+import enumeration
+from Tools import geoloc_commercial_db, purifier, geo_distance_calculator, network_measurer
+import settings
 import logging
 logger = mylogger.Logger("../Log/data_preprocessor.py.log", clevel=logging.INFO)
 import time
 import random
 import pytz
 import datetime
-import pyprind
 
 
 def is_valid(line):
@@ -239,74 +240,63 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 
-def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
-    '''
-    filter out IPs of which the location is ambiguous, that is, whose results from commercial databases are very different
-    '''
-
-    f_inp = open(in_file_path, "r", encoding="utf-8")
-    f_out = open(out_file_path, "a", encoding="utf-8")
-    count_ambiguity = 0
-    ind = 0
-    for line in f_inp:
-        if ind < index or line.strip() == "\n":
-            print("-----------------ind: %d pass--------------------" % ind)
-            ind += 1
-            continue
-        try:
-            sample = json.loads(line)
-        except Exception:
-            continue
-
-        print("-----------------ind: %d, count of ambiguous ip: %d--------------------" % (ind, count_ambiguity))
-
+def incorporate_coarse_locations_fr_commercial_dbs(*args):
+    samples = args[0]
+    for sample in samples:
         ip = sample["ip"]
-        ipinfo_fr_commercial_tools = geoloc_commercial_db.get_location_info_by_commercial_tools_unanimous(ip) # filter
-
-        if ipinfo_fr_commercial_tools is None:
-            count_ambiguity += 1
-            ind += 1
-            print("%s the city is ambiguous..." % ip)
-            continue
-
+        ipinfo_fr_commercial_tools = geoloc_commercial_db.get_locations_info_by_commercial_tools(ip)
         sample["result_fr_commercial_tool"] = ipinfo_fr_commercial_tools
-        f_out.write("%s\n" % json.dumps(sample))
-
-        ind += 1
-
-    print("count_ambiguity: %d" % count_ambiguity)
-    f_out.close()
+    return samples
 
 
-def incorporate_candidates_fr_web_mapping_services(in_file_path, out_file_path, start_ind, tag=None, radius=20000):
-    f_inp = open(in_file_path, "r", encoding="utf-8")
-    f_out = open(out_file_path, "a", encoding="utf-8")
+# def incorporate_coordinate_fr_commercial_db(in_file_path, out_file_path, index):
+#     '''
+#     filter out IPs of which the location is ambiguous, that is, whose results from commercial databases are very different
+#     '''
+#
+#     f_inp = open(in_file_path, "r", encoding="utf-8")
+#     f_out = open(out_file_path, "a", encoding="utf-8")
+#     ind = 0
+#     for line in f_inp:
+#         if ind < index or line.strip() == "\n":
+#             print("-----------------ind: %d pass--------------------" % ind)
+#             ind += 1
+#             continue
+#         try:
+#             sample = json.loads(line)
+#         except Exception:
+#             continue
+#
+#         print("-----------------ind: %d-------------------" % ind)
+#
+#         ip = sample["ip"]
+#         ipinfo_fr_commercial_tools = geoloc_commercial_db.get_location_info_by_commercial_tools_unanimous(ip) # filter
+#
+#         if ipinfo_fr_commercial_tools is None:
+#             ind += 1
+#             print("%s the city is ambiguous..." % ip)
+#             continue
+#
+#         sample["result_fr_commercial_tool"] = ipinfo_fr_commercial_tools
+#         f_out.write("%s\n" % json.dumps(sample))
+#
+#         ind += 1
+#
+#     f_out.close()
 
-    ind = 0
 
-    for line in f_inp:
-        print("-----------tag: %s------ind: %d-------------" % (tag, ind))
-        if ind < start_ind or line.strip() == "\n":
-            print("-----------------ind: %d pass--------------------" % ind)
-            ind += 1
-            continue
+def incorporate_candidates_fr_web_mapping_services(*args):
+    samples = args[0]
+    radius = args[1]
 
-        try:
-            sample = json.loads(line)
-        except Exception:
-            continue
-
+    new_samples = []
+    for sample in samples:
         t1 = time.time()
-        sample = iterative_inference_machine.search_candidates(sample,
-                                                                  sample["result_fr_commercial_tool"]["longitude"],
-                                                                  sample["result_fr_commercial_tool"]["latitude"],
-                                                                  radius)
+        sample = iterative_inference_machine.search_candidates(sample, radius)
+        new_samples.append(sample)
         t2 = time.time()
-
         print(t2 - t1)
-        f_out.write("%s\n" % json.dumps(sample))
-        ind += 1
-    f_out.close()
+    return new_samples
 
 
 def merge_near_candidates(in_file_path, out_file_path, index_start, tag):
@@ -482,9 +472,9 @@ def measure(num_candidates, task_list, start_ind):
         measurement_target_list.append(task["target_ip"])
 
         account_ind = (ind + 1) // max_num_per_account
-        if (account_ind + 1) > len(st_tool.RIPE_ACCOUNT_KEY):
+        if (account_ind + 1) > len(settings.RIPE_ACCOUNT_KEY):
             logger.war("hit the daily quota limitation ..., stop at ind: %d" % (start_ind + ind))
-        account = st_tool.RIPE_ACCOUNT_KEY[account_ind]
+        account = settings.RIPE_ACCOUNT_KEY[account_ind]
         ripe = network_measurer.RipeAtlas(account["account"], account["key"])
 
         zone = pytz.country_timezones('us')[0]

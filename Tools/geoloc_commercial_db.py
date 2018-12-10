@@ -1,11 +1,11 @@
 import geoip2.database
 from geoip2.errors import AddressNotFoundError
 from Tools.IPLocate import IPplus360
-from Tools import settings, requests_tools as rt, geo_distance_calculator
+from Tools import requests_tools as rt, geo_distance_calculator
 import json
 import datx
 import requests
-
+import settings
 reader_geolite2 = geoip2.database.Reader('../Sources/GeoLite2-City.mmdb')
 reader_ipip = datx.City(settings.IP_INFO_IPIP_PATH)
 reader_ipplus = IPplus360()
@@ -136,30 +136,22 @@ def ip_geolocation_ipplus360(ip):
 
 
 def get_locations_info_by_commercial_tools(ip):
-    ipinfo_fr_ipplus = ip_geolocation_ipplus360(ip)  # free trial, one month expire, low precision
-    ipinfo_fr_ipip = ip_geolocation_ipip(ip)
-    ipinfo_fr_geolite2 = ip_geolocation_geolite2(ip)  # free, low precision
-
-    return {
-            "ipplus": {
-                "coarse_grained_region": "%s, %s, %s" %
-                                         (ipinfo_fr_ipplus["country"], ipinfo_fr_ipplus["region"],
-                                          ipinfo_fr_ipplus["city"]),
-                "longitude": ipinfo_fr_ipplus["longitude"],
-                "latitude": ipinfo_fr_ipplus["latitude"]},
-            "ipip": {
-                "coarse_grained_region": "%s, %s, %s" %
-                                         (ipinfo_fr_ipip["country"], ipinfo_fr_ipip["region"],
-                                          ipinfo_fr_ipip["city"]),
-                "longitude": ipinfo_fr_ipip["longitude"],
-                "latitude": ipinfo_fr_ipip["latitude"]},
-            "geolite2": {
-                "coarse_grained_region": "%s, %s, %s" %
-                                         (ipinfo_fr_geolite2["country"], ipinfo_fr_geolite2["region"],
-                                          ipinfo_fr_geolite2["city"]),
-                "longitude": ipinfo_fr_geolite2["longitude"],
-                "latitude": ipinfo_fr_geolite2["latitude"], },
-            }
+    coarse__grained_locations = []
+    res_fr_commercial_db_list = [ip_geolocation_ipplus360(ip), ip_geolocation_ipip(ip), ip_geolocation_geolite2(ip), ]
+    for res in res_fr_commercial_db_list:
+        if res["longitude"] is None or res["latitude"] is None:
+            continue
+        loc = {
+            # "source": "ipplus",
+            "country": res["country"],
+            "region": res["region"],
+            "city": res["city"],
+            "coarse_grained_region": "%s, %s, %s" % (res["country"], res["region"], res["city"]),
+            "longitude": res["longitude"],
+            "latitude": res["latitude"],
+        }
+        coarse__grained_locations.append(loc)
+    return coarse__grained_locations
 
 
 def get_location_info_by_commercial_tools_unanimous(ip):

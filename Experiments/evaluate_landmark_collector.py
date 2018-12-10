@@ -1,5 +1,5 @@
 import json
-from LandmarksCollector import settings
+import settings
 from Tools import geo_distance_calculator
 
 

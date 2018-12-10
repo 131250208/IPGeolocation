@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 from LandmarksCollector.data_preprocessor import is_valid, get_brief_one
 import re
-from LandmarksCollector import settings
+import settings
 import logging
 import json
 

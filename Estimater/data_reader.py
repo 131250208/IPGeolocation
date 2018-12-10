@@ -3,7 +3,7 @@ import datetime
 import json
 from Tools import network_measurer
 import numpy as np
-from Tools import settings
+import settings
 
 
 def get_vect(list_rtt):

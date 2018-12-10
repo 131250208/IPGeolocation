@@ -1,11 +1,11 @@
-import json
-
-import pyprind
-from Tools import geo_distance_calculator, mylogger, geoloc_commercial_db, web_mapping_services, purifier
-from LandmarksCollector import owner_name_extractor as one, settings, enumeration
+from Tools import geo_distance_calculator, mylogger, web_mapping_services, ner_tool
+from LandmarksCollector import owner_name_extractor as one
+import enumeration
+import settings
 logger = mylogger.Logger("../Log/iterative_inference_machine.py.log")
 from itertools import combinations
 import numpy as np
+
 
 def get_candidates_by_owner_name_fr_pageinfo(html, url, lng, lat, radius):
     '''
@@ -24,7 +24,7 @@ def get_candidates_by_owner_name_fr_pageinfo(html, url, lng, lat, radius):
             org_info = next(it)
         except StopIteration:
             break
-        query = purifier.filter_out_redundant_c(org_info, settings.COMPANY_ABBR)
+        query = ner_tool.filter_out_company_char(org_info)
         candidates = web_mapping_services.google_map_nearby_search(query, lng, lat, radius)
         last_query = query
         if len(candidates) > 0:
@@ -35,7 +35,7 @@ def get_candidates_by_owner_name_fr_pageinfo(html, url, lng, lat, radius):
     return [], last_query
 
 
-def search_candidates(sample, lng_com, lat_com, radius, ):
+def search_candidates(sample, radius):
     '''
     use owner name to search candidates of specific IP
     :param sample:
@@ -44,26 +44,37 @@ def search_candidates(sample, lng_com, lat_com, radius, ):
     :param radius:
     :return: a page info object with candidates got from searching by owner names
     '''
-    query_registration_db = one.get_org_name_by_registration_db(sample["ip"])
+    ip = sample["ip"]
+    html = sample["html"]
+    coarse_grained_loc_list = sample["result_fr_commercial_tool"]
+    candidates_fr_pageinfo = []
+    candidates_fr_registration_db = []
 
-    query_registration_db = purifier.filter_out_redundant_c(query_registration_db, settings.COMPANY_ABBR)
+    query_fr_registration_db = one.get_org_name_by_registration_db(ip)
+    owner_name_list = one.get_owner_names_fr_page(html)
+    query_fr_page = " ".join(owner_name_list) if len(owner_name_list) > 0 else None
 
-    candidates_fr_registration_db = web_mapping_services.google_map_nearby_search(query_registration_db, lng_com, lat_com,
-                                                                           radius) if query_registration_db is not None else []
+    coarse_grained_loc_list = geo_distance_calculator.merge_near_locations(coarse_grained_loc_list, 20000)
 
-    candidates_fr_pageinfo, query_page = get_candidates_by_owner_name_fr_pageinfo(sample["html"], sample["url"], lng_com, lat_com,
-                                                                                  radius)
+    for loc in coarse_grained_loc_list:
+        lng_com = loc["longitude"]
+        lat_com = loc["latitude"]
+        if query_fr_page is not None:
+            candidates_fr_pageinfo += web_mapping_services.google_map_nearby_search(query_fr_page,
+                                                                                    lng_com, lat_com, radius)
+        if query_fr_registration_db is not None:
+            candidates_fr_registration_db += web_mapping_services.google_map_nearby_search(query_fr_registration_db,
+                                                                                           lng_com, lat_com, radius)
 
     sample["result_fr_page"] = {
-        "query": query_page,
+        "query": query_fr_page,
         "candidates": candidates_fr_pageinfo
     }
     sample["result_fr_registration_db"] = {
-        "query": query_registration_db,
+        "query": query_fr_registration_db,
         "candidates": candidates_fr_registration_db,
     }
 
-    # print("%s finished..." % page_info["ip"])
     return sample
 
 

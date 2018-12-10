@@ -3,10 +3,9 @@ from bs4 import BeautifulSoup
 import re
 from Tools import purifier
 import requests
-from LandmarksCollector import settings
-from Tools import requests_tools as rt
+import settings
 from Tools.mylogger import Logger
-from Tools import ocr_tool, ner_tool
+from Tools import ocr_tool, ner_tool, other_tools, requests_tools as rt
 logger = Logger("../Log/owner_identification_us.log")
 
 
@@ -219,6 +218,48 @@ def get_org_info_fr_pageinfo(html, url):
     for q in list_query:
         yield q
 
+
+def extract_owner_info_str(html):
+    '''
+    extract owner info from html text
+    :param html:
+    :return:
+    '''
+    soup = purifier.get_pure_soup_fr_html(html)
+    title = get_title(soup)
+    logo_list = extract_logo(soup)
+    cpr = extract_copyright_info(soup)
+
+    logo_info_list = []
+    for logo in logo_list:
+        name = logo["src"].split("/")[-1].split(".")[0]
+        word_list = other_tools.tokenize_v1(name)
+        if "ubuntu" in word_list:
+            pass
+        words = [word for word in word_list if word not in other_tools.get_all_styles("logo")]
+        name = " ".join(words)
+        name_info = " ".join(other_tools.get_all_styles(name))
+
+        logo_info_list.append("%s %s %s" % (logo["title"], logo["alt"], name_info))
+
+    logo_info = " ".join(logo_info_list)
+
+    owner_info = " ".join([title, logo_info, " ".join(cpr)])
+    pattern = "|".join(other_tools.get_all_styles("logo"))
+    owner_info = re.sub(pattern, "", owner_info)
+    owner_info = re.sub("[\n\r\s\t]+", " ", owner_info)
+
+    return owner_info
+
+
+org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
+
+
+def get_owner_names_fr_page(html):
+    owner_info_str = extract_owner_info_str(html)
+    return ner_tool.extract_org_name_fr_str(owner_info_str, org_name_dict)
+
+
 # Copyright © 2015 - 2016 Shandong Shengwen Environmental Protection Technology Co., Ltd. All Rights Reserved.
     # Copyright (c) 2007 NTTPC Communications, Inc. All rights reserved.
     # © 2003-2011 中国民航科学技术研究院 版权所有 京ICP备05040221号
@@ -314,9 +355,10 @@ def get_org_name_by_registration_db(ip):
     if org is None:
         return None
 
-    reduntant = ["Inc", "LLC", ".com", "L.L.C", "Ltd", "technology", "Technologies"]
-    pattern = "(%s)" % "|".join(reduntant)
-    org = re.sub(pattern, "", org, re.I)
+    # reduntant = ["Inc", "LLC", ".com", "L.L.C", "Ltd", "technology", "Technologies"]
+    # pattern = "(%s)" % "|".join(reduntant)
+    # org = re.sub(pattern, "", org, re.I)
+    org = ner_tool.filter_out_company_char(org)
 
     return org
 

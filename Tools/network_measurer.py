@@ -2,7 +2,7 @@ from Tools import requests_tools as rt
 import requests
 import re
 import time
-from Tools import settings
+import settings
 import json
 import datetime
 import math

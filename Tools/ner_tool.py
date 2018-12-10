@@ -2,7 +2,7 @@ import ner
 import time
 tagger = ner.SocketNER(host='localhost', port=8080)
 from Tools import requests_tools as rt, online_search, other_tools
-from LandmarksCollector import settings as st_lan
+import settings
 from bs4 import BeautifulSoup
 from gevent import monkey
 monkey.patch_socket()
@@ -10,7 +10,8 @@ import gevent
 from multiprocessing import Pool
 import json
 import re
-
+from nltk.stem.wordnet import WordNetLemmatizer
+import random
 
 def ner_stanford(str):
     '''
@@ -18,7 +19,11 @@ def ner_stanford(str):
     :param str:
     :return:
     '''
-    result = tagger.get_entities(str)
+    try:
+        result = tagger.get_entities(str)
+    except UnicodeDecodeError:
+        return {}
+
     return result
 
 
@@ -28,13 +33,17 @@ def filter_out_company_char(str):
     :param str:
     :return: cleaner string
     '''
-    company_addr = [re.sub("\.", "\.", c) for c in st_lan.COMPANY_ABBR]
+    if str is None or str == "":
+        return str
+
+    company_addr = [re.sub("\.", "\.", c) for c in settings.COMPANY_ABBR]
     company_addr = ["(%s)" % c for c in company_addr]
     pattern = r"%s" % "|".join(company_addr)
+
     org_name = re.sub(pattern, "", str, flags=re.I)
 
     se = re.search("([0-9a-zA-Z]+.*[0-9a-zA-Z]+)", org_name)
-    org_name = se.group(1) if se else ""
+    org_name = se.group(1) if se and se.group(1) is not None else ""
     return org_name
 
 
@@ -48,8 +57,9 @@ def build_indexes_4_org_name_dict(inp_file_path_list):
     :param out_file_path:
     :return: new dict
     '''
+    daily_words = json.load(open("../Sources/en_words_list_5000.json", "r"))
     org_name_dict_index = {}
-
+    stop_list = settings.STOP_WORDS
     for inp_file_path in inp_file_path_list:
         org_name_dict = json.load(open(inp_file_path, "r"))
 
@@ -58,6 +68,16 @@ def build_indexes_4_org_name_dict(inp_file_path_list):
         for org_name in org_name_dict.keys():
             ess_list = extract_essentials_fr_org_full_name(org_name)
             for ess in ess_list:
+                if " " not in ess: # if it is a single word
+                    lmtzr = WordNetLemmatizer()
+                    ori = lmtzr.lemmatize(ess.lower())
+                    if ori in daily_words:
+                        continue
+                if ess in stop_list: # if it falls in stop list
+                    continue
+
+                if ess == "Copyright © 2012 Endurance Group  All rights reserved":
+                    print("!")
                 org_dict_ext[ess] = 0
 
         org_name_dict = org_dict_ext
@@ -77,59 +97,115 @@ def build_indexes_4_org_name_dict(inp_file_path_list):
     return org_name_dict_index
 
 
-def extend_org_name_by_google(query_list, tag=None):
+def get_relevant_org_names_by_google(query, tag=None):
     '''
     get more relevant org name by search engine(google
-    :param query_list:
+    :param query_set:
     :param tag:
     :return: relevant organization name list
     '''
     rel_org_name_set = set()
-    len_qry_list = len(query_list)
-    for ind, query in enumerate(query_list):
-        text = online_search.google_search(query, "spider_abroad")
-        time.sleep(1)
-        soup = BeautifulSoup(text, "lxml")
-        div_list = soup.select("div[data-md='133']")
-        next = []
-        host = "https://www.google.com"
-        for div in div_list:
-            a_list = div.select("a.EbH0bb")
-            for a in a_list:
-                next.append("%s%s" % (host, a["href"]))
-        a = soup.find("a", text="People also search for")
-        if a is not None:
+    # len_qry_list = len(query_set)
+    text = online_search.google_search(query, proxy_type="abroad")
+    random.seed(time.time())
+    time.sleep(3 * random.random())
+
+    soup = BeautifulSoup(text, "lxml")
+    # relevant org name on current page
+    a_reltype_list = soup.select("div[data-reltype='sideways'] > a")
+    for a in a_reltype_list:
+        rel_org_name_set.add(a["title"].strip())
+
+    # collect next urls
+    div_list = soup.select("div[data-md='133']")
+    next = []
+    host = "https://www.google.com"
+    for div in div_list:
+        a_list = div.select("a.EbH0bb")
+        for a in a_list:
             next.append("%s%s" % (host, a["href"]))
 
-        for url in next:
-            res = rt.try_best_request_get(url, 5, "get_org_name", "spider_abroad")
-            soup = BeautifulSoup(res.text, "lxml")
-            a_list = soup.select("a.klitem")
-            for a in a_list:
-                rel_org_name = a["title"]
-                rel_org_name_set.add(rel_org_name)
-        print("tag: %s, pro: %d/%d, query:%s, len_new: %d" % (
-        tag, ind + 1, len_qry_list, query, len(rel_org_name_set)))
-    return list(rel_org_name_set)
+    a_also_search = soup.find("a", text="People also search for")
+    if a_also_search is not None and "http" not in a_also_search["href"]:
+        next.append("%s%s" % (host, a_also_search["href"]))
+
+    a_parent_org = soup.find("a", text="Parent organization")
+    if a_parent_org is not None:
+        parent_str = a_parent_org.parent.parent.text.strip()
+        parent_org = parent_str.split(":")[1]
+        rel_org_name_set.add(parent_org.strip())
+
+    a_subsidiaries = soup.find("a", text="Subsidiaries")
+    if a_subsidiaries is not None:
+        href = a_subsidiaries["href"]
+        if "http" not in href:
+            subsidiaries_str = a_subsidiaries.parent.parent.text.strip()
+            subs = subsidiaries_str.split(":")[1].split(",")
+            for sub in subs:
+                sub = sub.strip()
+                if sub == "MORE":
+                    continue
+                rel_org_name_set.add(sub)
+            next.append("%s%s" % (host, href))
+
+    # scrawl urls in list 'next'
+    for url in next:
+        if "wikipedia" in url:
+            print("!")
+        res = rt.try_best_request_get(url, 5, "get_org_name", proxy_type="abroad")
+        soup = BeautifulSoup(res.text, "lxml")
+        a_list = soup.select("a.klitem")
+        for a in a_list:
+            rel_org_name = a["title"]
+            rel_org_name_set.add(rel_org_name.strip())
+
+        random.seed(time.time())
+        time.sleep(3 * random.random())
+
+    return rel_org_name_set
 
 
-def update_org_name_db(org_name_list):
+def extend_org_name_dict(org_name_dict_file_path):
+    try:
+        org_name_dict = json.load(open(org_name_dict_file_path, "r", encoding="utf-8"))
+    except:
+        org_name_dict = {"Baidu": 0, "Google": 0}
 
-    chunks = other_tools.chunks_avg(org_name_list, 8)
-    pool = Pool(8)
-    res_list = []
-    for ind, chunk in enumerate(chunks):
-        res = pool.apply_async(extend_org_name_by_google, args=(chunk, ind))
-        res_list.append(res)
-    pool.close()
-    pool.join()
+    while True:
+        org_name_list = [key for key in org_name_dict.keys() if org_name_dict[key] == 0]
+        if len(org_name_list) == 0:
+            print("ALL DONE!")
+            break
+
+        for ind, seed in enumerate(org_name_list):
+            t1 = time.time()
+            rel_org_name_set = get_relevant_org_names_by_google(seed)
+
+            new_org_name_list = [org for org in rel_org_name_set if org not in org_name_dict]
+            for org in new_org_name_list:
+                org_name_dict[org] = 0
+
+            json.dump(org_name_dict, open(org_name_dict_file_path, "w", encoding="utf-8"))
+            org_name_dict[seed] = 1  # done
+
+            print(new_org_name_list)
+            print("pro: %d/%d, query:%s, len_new: %d" % (
+                ind + 1, len(org_name_list), seed, len(new_org_name_list)))
+
+            t2 = time.time()
+            print(t2 - t1)
+
+        random.seed(time.time())
+        time.sleep(3 * random.random())
 
 
-def org_name_extract(str, org_name_dict):
-    str = str.strip()
-    if str == "":
+def extract_org_name_fr_str(target_str, org_name_dict):
+    target_str = target_str.strip()
+    if target_str == "":
         return []
-    words = other_tools.tokenize_v1(str)
+
+    # extract by dict
+    words = other_tools.tokenize_v1(target_str)
     candidates = []
     for word in words:
         subset = org_name_dict[word] if word in org_name_dict else []
@@ -139,8 +215,44 @@ def org_name_extract(str, org_name_dict):
 
     winners = []
     for can in set(candidates):
-        if can in str:
+        if can in target_str:
             winners.append(can)
+
+    # extract fr copyright
+    # RegEx
+    pattern_cpy = settings.PATTERN_COPYRIGHT
+    end_list = ["Inc", "LLC", "L.L.C", "Ltd", "Co.", "All Rights Reserved"]
+    pattern_end = "(%s)" % "|".join(end_list)
+    pattern_end = re.sub("\.", "\.", pattern_end)
+    pattern = "%s+([^A-Za-z]+)?(.*?)%s" % (pattern_cpy, pattern_end)
+    se = re.search(pattern, target_str, flags=re.I)
+    if se:
+        owner_name_fr_cpy = filter_out_company_char(se.group(4))
+        if owner_name_fr_cpy != "":
+            winners.append(owner_name_fr_cpy)
+
+    # NER Stanford
+    res_ner = ner_stanford(target_str)
+    org_list = res_ner["ORGANIZATION"] if "ORGANIZATION" in res_ner else []
+    if len(org_list) > 0 and len(winners) == 0:
+        # stanford win
+        for org in org_list:
+            open("../Sources/org_name_supplement.txt", "a", encoding="utf-8").write("%s\n" % org)
+    winners += org_list
+
+    # filer out duplicates
+    winners = sorted(winners, key=lambda x: len(x), reverse=True)
+    winners_new = []
+    mem = ""
+    for s in winners:
+        if s.lower() not in mem.lower():
+            winners_new.append(s)
+            mem += " %s" % s
+    winners = winners_new
+
+    # list in order
+    winners = sorted(winners, key=lambda x: target_str.find(x))
+
     return winners
 
 
@@ -150,23 +262,23 @@ def extract_essentials_fr_org_full_name(org_name):
     :param org_name:
     :return:
     '''
+    org_name_list = [filter_out_company_char(org_name), ]
     # org_name = re.sub("\(Historical\)", "", org_full_name)
 
     # extract the abbreviation in "()"
-    org_name_list = [filter_out_company_char(org_name), ]
-    pattern = "\([A-Z]{3,}\)"
-    abbr_list = re.findall(pattern, org_name)
-    abbr_list = [re.search("\((.*?)\)", en).group(1) for en in abbr_list]
-    org_name_list += abbr_list
+    # pattern = "\([A-Z]{3,}\)"
+    # abbr_list = re.findall(pattern, org_name)
+    # abbr_list = [re.search("\((.*?)\)", en).group(1) for en in abbr_list]
+    # org_name_list += abbr_list
 
     # filter out (...)
     org_name = re.sub("\(.*?\)", "", org_name)
 
     # filter out co.,ltd, etc.
     org_name = filter_out_company_char(org_name)
-    if org_name != "":
-        org_name_list.append(org_name)
+    org_name_list.append(org_name)
 
+    org_name_list = [org for org in set(org_name_list) if org != ""]
     # # split by "," and " - "
     # org_name = re.sub("–", "-", org_name)
     # org_name_list += re.split("\s-\s|,|\s-|-\s|:\s", org_name)
@@ -174,37 +286,16 @@ def extract_essentials_fr_org_full_name(org_name):
     return org_name_list
 
 
-# onr = OrgNameRecognition("../Sources/org_names_1.json")
-#
-#
-# def org_name_extract(str):
-#     dict_str = onr.get_dict_str()
-#     lcsubstr, ind_start, ind_end = other_tools.find_lcsubstr(dict_str, str)
-#     pre_c = dict_str[ind_start - 1]
-#     follow_c = dict_str[ind_end]
-#     if pre_c == "^" and follow_c == "^":
-#         return lcsubstr
-#     else:
-#         return None
-
-
 if __name__ == "__main__":
-    # path = "../Sources/org_names_1.json"
-    # onn = OrgNameRecognition(path)
-    # t1 = time.time()
-    # rel_org_name_list = onn.get_extended_org_name_list(["Baidu", "Google", ])
-    # print(rel_org_name_list)
-    # print(len(rel_org_name_list))
-    # print(time.time() - t1)
+    # f = open("../Sources/org_names/org_names_full_10.json", "r", encoding="utf-8")
+    # org_name_dict = json.load(f)
+    # print(len(org_name_dict))
 
-    # print(org_name_extract("Amazon"))
+    extend_org_name_dict("../Sources/org_names/org_names_full_10.json")
+
     # onn.update_org_name_db("../Sources/org_names_2.json")
 
     # org_name_dict_index = json.load(open(, "r"))
-
-    # path_list = ["../Sources/org_names/org_names_full_%d.json" % i for i in range(10)]
-    # org_name_dict_index = build_indexes_4_org_name_dict(path_list)
-    # json.dump(org_name_dict_index, open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "w"))
 
     # org_name_dict_index = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json"))
     # # dict_sta = {}
@@ -218,7 +309,4 @@ if __name__ == "__main__":
 
     # print(json.dumps(dict_sta, indent=2))
 
-    org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
-    res = org_name_extract("Harvard University jsdklfj DDM global wel Tofino Brewing Company ndsf Amazon sjdke eBay Google", org_name_dict)
-    print(res)
     pass

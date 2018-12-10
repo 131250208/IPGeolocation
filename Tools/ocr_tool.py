@@ -2,8 +2,9 @@ import base64
 from urllib import parse
 import requests
 import json
-from Tools import settings, requests_tools as rt
+from Tools import requests_tools as rt
 from Tools import mylogger
+import settings
 logger = mylogger.Logger("../Log/ocr_tool.py.log")
 
 

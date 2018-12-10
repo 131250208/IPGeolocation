@@ -1,4 +1,4 @@
-from Tools import other_tools, web_mapping_services
+from Tools import other_tools, web_mapping_services, ner_tool
 import json
 from LandmarksCollector import data_preprocessor as dp_lmc
 from multiprocessing import Pool
@@ -155,6 +155,13 @@ if __name__ == "__main__":
     # extract_org_names_batch("../Sources/loc/loc_0.json", "../Sources/org_names/org_names_0_test.json", 1000)
     # args = [("../Sources/loc/loc_%d.json" % i, "../Sources/org_names/org_names_full_%d.json" % i, 2800, i) for i in range(8)]
     # multiprocess(extract_org_names_batch, args, 8)
+
+    '''
+    build org name dict
+    '''
+    path_list = ["../Sources/org_names/org_names_full_%d.json" % i for i in range(10)]
+    org_name_dict_index = ner_tool.build_indexes_4_org_name_dict(path_list)
+    json.dump(org_name_dict_index, open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "w"))
 
 # ----------------------------------------------------------------------------------------------------------
     # # get coordinate from several commercial dbs

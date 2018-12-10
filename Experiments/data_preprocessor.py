@@ -1,9 +1,11 @@
 import requests
-from Tools import requests_tools as rt, geoloc_commercial_db,web_mapping_services
+from Tools import requests_tools as rt, geoloc_commercial_db, web_mapping_services
 import re
 from bs4 import BeautifulSoup
 import socket
 import pyprind
+import settings
+import json
 
 
 def crawl_planetlab():
@@ -186,3 +188,19 @@ def geocode(landmarks_planetlab):
             lm["geo_lnglat"] = addr
     return landmarks_planetlab
 
+
+def filer_valid_samples_us():
+    planet_list = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
+    samples_us_list = []
+    for lm in planet_list:
+        try:
+            invalid = False
+            for kw in settings.INVALID_LANDMARKS_KEYWORD:
+                if kw in lm["organization"]:
+                    invalid = True
+            if not invalid and lm["geo_lnglat"]["country"] == "United States" and "ip" in lm and "html" in lm:
+                    samples_us_list.append(lm)
+        except KeyError:
+            continue
+    print(len(samples_us_list))
+    json.dump(samples_us_list, open("../Sources/experiences/samples_planetlab_us.json", "w"))

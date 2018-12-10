@@ -8,7 +8,8 @@ import time
 import re
 from Tools import purifier, geo_distance_calculator
 import logging
-from Tools import requests_tools as rt, settings
+from Tools import requests_tools as rt
+import settings
 
 
 def random_sleep():
@@ -76,7 +77,7 @@ def google_kg_search(query_str):
 
 if __name__ == '__main__':
 
-    print(google_search("alibaba", "spider_abroad"))
+    print(google_search("alibaba", "abroad"))
     # open("../Sources/google_search.html", "w", encoding="utf-8").write(text)
     pass
 

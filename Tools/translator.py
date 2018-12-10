@@ -4,7 +4,7 @@ import execjs
 import json
 import logging
 import html
-from Tools import settings
+import settings
 import time
 import random
 

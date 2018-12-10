@@ -1,7 +1,8 @@
 from urllib import parse
 import json
-from Tools import settings, requests_tools as rt, geo_distance_calculator, mylogger
+from Tools import requests_tools as rt, geo_distance_calculator, mylogger
 import logging
+import settings
 logger = mylogger.Logger("../Log/web_mapping_services.log", logging.INFO, logging.INFO)
 
 
@@ -45,7 +46,7 @@ def google_map_nearby_search(query_str, lng, lat, radius):
 
     list_candidates = []
     while True:
-        res_json = rt.try_best_request_get(api, 999, "google_map_nearby_search", "abroad")
+        res_json = rt.try_best_request_get(api, 9999, "google_map_nearby_search", "abroad")
         if res_json.status_code != 200:
             break
         res_json = json.loads(res_json.text)
@@ -168,6 +169,6 @@ if __name__ == "__main__":
     # api = google_map_static_map(list_prb)
     # print(api)
 
-    res = google_map_nearby_search("research", -122.35689, 47.64288, 50000)
+    res = google_map_nearby_search("Amazon technology", -122.35689, 47.64288, 50000)
     print(res)
     print(len(res))
