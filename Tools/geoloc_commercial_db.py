@@ -138,7 +138,10 @@ def ip_geolocation_ipplus360(ip):
 def get_locations_info_by_commercial_tools(ip):
     coarse__grained_locations = []
     res_fr_commercial_db_list = [ip_geolocation_ipplus360(ip), ip_geolocation_ipip(ip), ip_geolocation_geolite2(ip), ]
+    res_fr_commercial_db_list = [res for res in res_fr_commercial_db_list if res is not None]
+
     for res in res_fr_commercial_db_list:
+
         if res["longitude"] is None or res["latitude"] is None:
             continue
         loc = {
@@ -203,3 +206,5 @@ def get_location_info_by_commercial_tools_unanimous(ip):
 
     return None
 
+if __name__ == "__main__":
+    print(get_locations_info_by_commercial_tools("60.221.216.106"))

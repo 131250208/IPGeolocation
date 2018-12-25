@@ -11,6 +11,8 @@ from urllib import parse
 import numpy as np
 import pytz
 import os
+from Doraemon.Requests import requests_dora
+
 
 class KeyCDN:
     
@@ -49,30 +51,38 @@ class KeyCDN:
             "time": time,
             "route_info": res_trace_route
         }
-    
-    def trace_route_query(self, hostname):
+
+    def get_final_info(self, css_selector, end_ip):
+        while True:
+            text = self.chrome.wait_to_get_element(css_selector).text
+            if end_ip in text:
+                break
+        return text
+
+    def trace_route_by_14_probes(self, ip):
         input_hostname = self.chrome.wait_to_get_element("input#hostname")
         input_hostname.clear()
-        input_hostname.send_keys(hostname)
+        input_hostname.send_keys(ip)
         btn_trace = self.chrome.wait_to_get_element("button#traceBtn:enabled")
         btn_trace.click()
         self.chrome.wait_to_get_element("button#traceBtn:enabled")
-        defr = self.chrome.wait_to_get_element("div#traceResultdefr > pre").text
+
+        defr = self.get_final_info("div#traceResultdefr > pre", ip)
     
-        usny = self.chrome.wait_to_get_element("div#traceResultusny > pre").text
-        usmi = self.chrome.wait_to_get_element("div#traceResultusmi > pre").text
-        usda = self.chrome.wait_to_get_element("div#traceResultusda > pre").text
-        ussf = self.chrome.wait_to_get_element("div#traceResultussf > pre").text
-        usse = self.chrome.wait_to_get_element("div#traceResultusse > pre").text
+        usny = self.get_final_info("div#traceResultusny > pre", ip)
+        usmi = self.get_final_info("div#traceResultusmi > pre", ip)
+        usda = self.get_final_info("div#traceResultusda > pre", ip)
+        ussf = self.get_final_info("div#traceResultussf > pre", ip)
+        usse = self.get_final_info("div#traceResultusse > pre", ip)
     
-        cato = self.chrome.wait_to_get_element("div#traceResultcato > pre").text
-        uklo = self.chrome.wait_to_get_element("div#traceResultuklo > pre").text
-        frpa = self.chrome.wait_to_get_element("div#traceResultfrpa > pre").text
-        nlam = self.chrome.wait_to_get_element("div#traceResultnlam > pre").text
-        sgsg = self.chrome.wait_to_get_element("div#traceResultsgsg > pre").text
-        ausy = self.chrome.wait_to_get_element("div#traceResultausy > pre").text
-        jptk = self.chrome.wait_to_get_element("div#traceResultjptk > pre").text
-        inba = self.chrome.wait_to_get_element("div#traceResultinba > pre").text
+        cato = self.get_final_info("div#traceResultcato > pre", ip)
+        uklo = self.get_final_info("div#traceResultuklo > pre", ip)
+        frpa = self.get_final_info("div#traceResultfrpa > pre", ip)
+        nlam = self.get_final_info("div#traceResultnlam > pre", ip)
+        sgsg = self.get_final_info("div#traceResultsgsg > pre", ip)
+        ausy = self.get_final_info("div#traceResultausy > pre", ip)
+        jptk = self.get_final_info("div#traceResultjptk > pre", ip)
+        inba = self.get_final_info("div#traceResultinba > pre", ip)
     
     
         res_dict = {
@@ -91,8 +101,23 @@ class KeyCDN:
             "jptk": self.extract_trace_route_info_fr_text(jptk),
             "inba": self.extract_trace_route_info_fr_text(inba),
                 }
-        return json.dumps(res_dict)
-    
+        return res_dict
+
+    def get_brief_info_route(self, ip):
+        full_info_route = self.trace_route_by_14_probes(ip)
+        brief_info_dict = {}
+        for key, info_pro in full_info_route.items():
+            route_list = []
+            for rt in info_pro["route_info"]:
+                route_list.append({"ip": rt["ip"], "delay": rt["Best"]})
+
+            brief_info_dict[key] = route_list
+        return brief_info_dict
+
+    def login(self):
+        self.chrome.get("https://tools.keycdn.com/traceroute")
+        self.chrome.get("https://tools.keycdn.com/traceroute")
+
     def measure_by_keycdn(self):
         self.chrome.get("https://tools.keycdn.com/traceroute")
     
@@ -100,7 +125,7 @@ class KeyCDN:
         for lm in pyprind.prog_bar(json_landmarks):
             ip = lm["ip"]
             t1 = time.time()
-            res = self.trace_route_query(ip)
+            res = self.trace_route_by_14_probes(ip)
             lm["measurement_keycdn"] = [res, ]
             print(res)
             t2 = time.time()
@@ -424,7 +449,7 @@ class RipeAtlas:
                 pass
     
         map_ip_coordinate = {}
-        map_id_coordinate = {}
+        # map_id_coordinate = {}
         data = []
     
         url = "https://atlas.ripe.net:443/api/v2/probes/?country_code=US&status=1"
@@ -442,7 +467,7 @@ class RipeAtlas:
     
                 if id is not None:
                     coordinates = r["geometry"]["coordinates"]
-                    map_id_coordinate[id] = coordinates  # [lon, lat]
+                    # map_id_coordinate[id] = coordinates  # [lon, lat]
                     map_ip_coordinate[ip] = {
                         "id": id,
                         "longitude": coordinates[0],
@@ -456,9 +481,9 @@ class RipeAtlas:
             else:
                 url = next_page
     
-        print(json.dumps(map_id_coordinate))
-        print("-------------------------")
-        print(json.dumps(data))
+        # print(json.dumps(map_id_coordinate))
+        # print("-------------------------")
+        # print(json.dumps(data))
         return map_ip_coordinate
     
     
@@ -489,6 +514,36 @@ def ping(hostname, count):
         return True
     else:
         return False
+
+
+def traceroute(hostname):
+    file = os.popen("tracert {}".format(hostname))
+    lines = []
+    for line in file:
+        line = line.strip()
+        if "通过" in line or "到" in line or "跟踪完成" in line\
+                or line == "\n" or line == "":
+            continue
+        print(line)
+        if "请求超时。" in line:
+            line = re.sub("请求超时。", '256.256.256.256', line)
+        if "*" in line:
+            line = re.sub("\*", "999999 ms", line)
+
+        if "<1 毫秒" in line:
+            line = re.sub("<1 毫秒", "1 ms", line)
+
+        se = re.search("\d+ (.*?)(\d+\.\d+\.\d+\.\d+).*", line)
+        se_delay = re.search("(\d+)\sms\s+(\d+)\sms\s+(\d+)\sms", se.group(1))
+        delays = [int(se_delay.group(1)), int(se_delay.group(2)), int(se_delay.group(3))]
+        delay_min = min(delays)
+
+        lines.append({
+            "ip": se.group(2),
+            "delay": delay_min,
+        })
+
+    return lines
 
 
 def measure_900():
@@ -524,5 +579,49 @@ def measure_900():
                                                        [tag, ], des, )
 
 
+def get_all_ips(host):
+    '''
+
+    :param host:
+    :param area: china, asia, europe, africa, oceania, north_america, south_america
+    :return:
+    '''
+    dns_parsed_list = dns_parse(host)
+    ip_set = set()
+    for p in dns_parsed_list:
+        ip_dict = p["ips"]
+        for ip in ip_dict.keys():
+            ip_set.add(ip)
+    return list(ip_set)
+
+
+def dns_parse(host, area="all"):
+    '''
+    :param host:
+    :param area: china, asia, europe, africa, oceania, north_america, south_america
+    :return:
+    '''
+
+    if area != "all":
+        url = "https://tools.ipip.net/dns.php?a=dig&host={}&custom_dns=&area%5B%5D={}".format(host, area)
+    else:
+        url = "https://tools.ipip.net/dns.php?a=dig&host=www8.hp.com&custom_dns=&area%5B%5D=china&area%5B%5D=asia&area%5B%5D=europe&area%5B%5D=africa&area%5B%5D=oceania&area%5B%5D=north_america&area%5B%5D=south_america"
+    res = requests_dora.try_best_2_get(url)
+    pattern = '''{"query_time":".*?","ips":{".*?":".*?"},"dns_ip":".*?","dig_text":".*?"}'''
+    all_parsed = re.findall(pattern, res.text)
+    dns_parsed_list = []
+    for p in all_parsed:
+        p_json = json.loads(p)
+        dns_parsed_list.append(p_json)
+
+    return dns_parsed_list
+
+
 if __name__ == "__main__":
-    print(ping("67.169.33.196", 1))
+    ip_list = get_all_ips("www8.hp.com")
+    print(ip_list)
+    # print(ping("67.169.33.196", 1))
+    # file = os.popen("tracert 67.169.33.196")
+    # print(file.readlines())
+
+    pass

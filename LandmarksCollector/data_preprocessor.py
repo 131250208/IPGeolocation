@@ -12,47 +12,52 @@ import time
 import random
 import pytz
 import datetime
+import pyprind
+import strings
+import numpy as np
+from itertools import combinations
+# from sklearn.preprocessing import scale
 
 
-def is_valid(line):
-    '''
-    check:
-        not "\n",
-        can be loaded by json,
-        not error page,
-        has status_code and it is 200
-
-    :param line: a line of bytes read from file
-    :return: boolen
-    '''
-
-    line = line.decode("utf-8")
-
-    if line.strip("\n") == "":
-        return False
-
-    # filter json loading fail
-    try:
-        banner_info = json.loads(line)
-    except Exception as e:
-        logger.war(e)
-        logger.war("error str can not be loads as json: %s" % line)
-        return False
-
-    if "error" in banner_info:  # filter error pages
-        return False
-
-    # filter samples without status code
-    try:
-        status_code = banner_info["data"]["http"]["response"]["status_code"]
-    except Exception as e:
-        logger.war(e)
-        logger.war("has no status_code: %s" % line)
-        return False
-
-    if status_code != 200:  # filter pages of which status code is not 200
-        return False
-    return True
+# def is_valid(line):
+#     '''
+#     check:
+#         not "\n",
+#         can be loaded by json,
+#         not error page,
+#         has status_code and it is 200
+#
+#     :param line: a line of bytes read from file
+#     :return: boolen
+#     '''
+#
+#     line = line.decode("utf-8")
+#
+#     if line.strip("\n") == "":
+#         return False
+#
+#     # filter json loading fail
+#     try:
+#         banner_info = json.loads(line)
+#     except Exception as e:
+#         logger.war(e)
+#         logger.war("error str can not be loads as json: %s" % line)
+#         return False
+#
+#     if "error" in banner_info:  # filter error pages
+#         return False
+#
+#     # filter samples without status code
+#     try:
+#         status_code = banner_info["data"]["http"]["response"]["status_code"]
+#     except Exception as e:
+#         logger.war(e)
+#         logger.war("has no status_code: %s" % line)
+#         return False
+#
+#     if status_code != 200:  # filter pages of which status code is not 200
+#         return False
+#     return True
 
 
 def get_brief_one(line):
@@ -135,70 +140,135 @@ def check_title(title):
     return True
 
 
+def is_valid(sample):
+    if "error" in sample:  # filter error pages
+        return False
+
+    # filter out samples without status code
+    try:
+        status_code = sample["data"]["http"]["response"]["status_code"]
+    except Exception as e:
+        return False
+
+    if status_code != 200:  # filter out pages of which status code is not 200
+        return False
+    return True
+
+
+def filter_out_unnecessary_info(sample):
+    '''
+    only remain the necessary info for recognition
+    :param sample:
+    :return:
+    '''
+    ip = sample["ip"]
+    response = sample["data"]["http"]["response"]
+
+    if "body" in response:
+        html = response["body"]
+    else:
+        return None
+
+    if html.strip() == "":
+        return None
+
+    title = ""
+    try:
+        soup = BeautifulSoup(html, "lxml")
+    except Exception:
+        return None
+
+    tag_title = soup.select_one("title")
+    if tag_title is not None:
+        title = tag_title.get_text()
+    else:
+        match = re.search("<title[^>]*>(.*)</title>", html)
+        if match is not None:
+            title = match.group(1)
+
+    try:
+        url = response["request"]["url"]
+        scheme = ""
+        host = ""
+        path = ""
+        if "scheme" in url:
+            scheme = url["scheme"]
+        if "host" in url:
+            host = url["host"]
+        if "path" in url:
+            path = url["path"]
+
+        return {"title": title,
+                "url": "%s://%s%s" % (scheme, host, path),
+                "html": html,
+                "ip": ip,
+                "scheme": scheme,
+                "host": host,
+                "path": path,
+                }
+    except Exception as e:
+        logger.war(e)
+        return None
 # --------------------------------batch processing---------------------------------------------------------------------
 
 
-def find_pages_us(infilepath, outfilepath, index):
+def filter_ips_in_us(samples, *args):
+    new_samples = []
+    for sample in samples:
+        locs = geoloc_commercial_db.get_locations_info_by_commercial_tools(sample["ip"])
+        in_us = True
+        for loc in locs:
+            if loc["country"] != "United States" and loc["country"] != "美国":
+                in_us = False
+
+        if in_us:
+            new_samples.append(sample)
+
+    return new_samples
+
+
+def filter_out_duplicates_n_invalid_samples(samples, *args):
     '''
-    for data from ipv4 space ~ 700G
-    :param infilepath:
+    filter out invalid(dead) IPs and duplicates
+    :param samples:
+    :param args:
     :return:
     '''
-    f = open(infilepath, "rb")
-    out = open(outfilepath, "a", encoding="utf-8")
-
-    ind = 0
-    count_temp = 0
-    save_size = 1000
-    saved_time = 0
-    for line in f:
-        # print("----------------------%d--------------------" % ind)
-        if ind < index:
-            ind += 1
-            continue
-        sample = get_brief_one(line) if is_valid(line) else None
-        if sample is not None and check_title(sample["title"]):
-            location_info = geoloc_commercial_db.get_location_info_by_commercial_tools_unanimous(sample["ip"])
-            if location_info and location_info["country"] == "United States":
-                # print("idc: %s, isp: %s, region: %s, city: %s, lon: %s, lat: %s" % (ipip["idc"], ipip["isp"], ipip["region"], ipip["city"], ipip["longitude"], ipip["latitude"]) )
-                # print(sample)
-
-                out.write("%s\n" % json.dumps(sample))
-                count_temp += 1
-                if count_temp == save_size:
-                    saved_time += 1
-                    count_temp = 0
-                    out.close()
-                    out = open(outfilepath, "a", encoding="utf-8")
-                    logger.war("--ind: %d---saved_time: %d---\n" % (ind, saved_time))
-                # print("--ind: %d---saved_time: %d---\n"  % (ind, saved_time))
-        ind += 1
-
-    out.close()
+    set_ip = args[0]
+    new_samples = []
+    for sample in samples:
+        if is_valid(sample) and sample["ip"] not in set_ip:
+            sample = filter_out_unnecessary_info(sample)
+            if sample is not None:
+                set_ip.add(sample["ip"])
+                new_samples.append(sample)
+    return new_samples
 
 
-def filter_out_invalid(input_file_path, out_file_path):
-    '''
-    invalid: duplicates and dead ones(can not ping)
-    :param input_file_path:
-    :param out_file_path:
-    :return:
-    '''
-    inp_file = open(input_file_path, "r", encoding="utf-8")
-    out_file = open(out_file_path, "a", encoding="utf-8")
-    set_ip = set()
-    count_duplicates = 0
-    for ind, line in enumerate(inp_file):
-        print("-----------------%d--------------------" % ind)
-        sample = json.loads(line)
-        if sample["ip"] not in set_ip and network_measurer.ping(sample["ip"], 1):
-            out_file.write("%s\n" % json.dumps(sample))
-            set_ip.add(sample["ip"])
-        else:
-            logger.info("ip: %s is a invalid...., del" % sample["ip"])
-            count_duplicates += 1
-    out_file.close()
-    print("count_duplicates: %d" % count_duplicates)
+def extract_org_names(samples, *args):
+    org_name_dict = args[0]
+    for sample in samples:
+        # org_names = []
+        # if strings.KEY_POTENTIAL_OWNER_NAMES in sample:
+        #     org_names = sample[strings.KEY_POTENTIAL_OWNER_NAMES]
+        # else:
+        org_names = owner_name_extractor.extract_org_names_fr_page(sample["html"], org_name_dict)
+        org_names.append(owner_name_extractor.get_org_name_by_registration_db(sample["ip"]))
+
+        # filer out duplicates
+        org_names = sorted(org_names, key=lambda x: len(x), reverse=True)
+        org_names_new = []
+        mem = ""
+        for s in org_names:
+            if s.lower() not in mem.lower():
+                org_names_new.append(s)
+                mem += " %s" % s
+        org_names = org_names_new
+
+        sample[strings.KEY_POTENTIAL_OWNER_NAMES] = org_names
+        print("{:.1f} {} {}".format(sample["dis_coarse_2_ground"] / 1000, sample["organization"], sample[strings.KEY_POTENTIAL_OWNER_NAMES]))
+
+    return samples
 
 
 def find_pages_with_copyright(in_file_path, out_file_path, index):
@@ -240,12 +310,11 @@ def find_pages_with_copyright(in_file_path, out_file_path, index):
     f_out.close()
 
 
-def incorporate_coarse_locations_fr_commercial_dbs(*args):
-    samples = args[0]
+def incorporate_coarse_locations_fr_commercial_dbs(samples, *args):
     for sample in samples:
         ip = sample["ip"]
         ipinfo_fr_commercial_tools = geoloc_commercial_db.get_locations_info_by_commercial_tools(ip)
-        sample["result_fr_commercial_tool"] = ipinfo_fr_commercial_tools
+        sample[strings.KEY_LOCS_FROM_COMMERCIAL_TOOLS] = ipinfo_fr_commercial_tools
     return samples
 
 
@@ -285,9 +354,8 @@ def incorporate_coarse_locations_fr_commercial_dbs(*args):
 #     f_out.close()
 
 
-def incorporate_candidates_fr_web_mapping_services(*args):
-    samples = args[0]
-    radius = args[1]
+def incorporate_candidates_fr_web_mapping_services(samples, *args):
+    radius = args[0]
 
     new_samples = []
     for sample in samples:
@@ -299,39 +367,72 @@ def incorporate_candidates_fr_web_mapping_services(*args):
     return new_samples
 
 
-def merge_near_candidates(in_file_path, out_file_path, index_start, tag):
-    f_inp = open(in_file_path, "r", encoding="utf-8")
-    f_out = open(out_file_path, "a", encoding="utf-8")
+def choose_obsevers(observers):
+    len_ori_obs = len(observers)
+    dis_matrix = list(np.ones([len_ori_obs, len_ori_obs], dtype=float).tolist())
+    for ind1, ob1 in enumerate(observers.values()):
+        for ind2, ob2 in enumerate(observers.values()):
+            dis = geo_distance_calculator.get_geodistance_btw_2coordinates(ob1["longitude"], ob1["latitude"], ob2["longitude"], ob2["latitude"])
+            dis_matrix[ind1][ind2] = dis
 
-    ind = 0
-    for line in f_inp:
-        print("-----------tag: %s------ind: %d------------" % (tag, ind, ))
-        if ind < index_start or line.strip() == "\n":
-            print("-----------------ind: %d pass--------------------" % ind)
-            ind += 1
-            continue
+    np.array(dis_matrix)
+    score_list = []
+    for ind, ob in enumerate(observers.values()):
+        score = 1
+        for dis in dis_matrix[ind]:
+            score *= (dis + 0.1)
+        score_list.append(score)
 
-        try:
-            sample = json.loads(line.strip("\n"))
-        except Exception:
-            continue
+    temp_bound = zip(observers, score_list)
+    sorted(temp_bound, key=lambda x: x[1], reverse=True)
+    observers_ordered, scores = zip(*temp_bound)
 
-        candidates = sample["result_fr_page"]["candidates"] + sample["result_fr_registration_db"]["candidates"]
-        candidates = iterative_inference_machine.merge_near_candidates(candidates, 2000)
-        sample["candidates_merged"] = candidates
+    return observers_ordered[:25]
+
+
+def incorporate_observers_n_landmarks(samples, *args):
+    ripe_account = settings.RIPE_ACCOUNT_KEY[0]
+    ripe = network_measurer.RipeAtlas(ripe_account["account"], ripe_account["key"])
+    ip_2_loc_ripe = ripe.get_all_probes_us("../Sources/landmarks_ripe_us.json")
+    ip_2_loc_existing_landmarks = json.load(open("../Sources/landmarks/landmarks_fr_cyberspace_2.json", "r", encoding="utf-8"))
+
+    for sample in samples:
+        observers = {}
+        landmarks = {}
+        coarse_locs = geo_distance_calculator.merge_near_locations(sample[strings.KEY_LOCS_FROM_COMMERCIAL_TOOLS], 20000)
+        for loc in coarse_locs:
+            for ip, lm in ip_2_loc_existing_landmarks.items():
+                dis = geo_distance_calculator.get_geodistance_btw_2coordinates(loc["longitude"], loc["latitude"], lm["longitude"], lm["latitude"])
+                if dis < settings.RADIUS_FOR_SEARCHING_CANDIDATES:
+                    landmarks[ip] = lm
+            for ip, ob in ip_2_loc_ripe.items():
+                dis = geo_distance_calculator.get_geodistance_btw_2coordinates(loc["longitude"], loc["latitude"], ob["longitude"], ob["latitude"])
+                if dis < settings.RADIUS_FOR_SEARCHING_CANDIDATES:
+                    observers[ip] = ob
+
+        # if len(observers) > 25:
+        #     observers = choose_obsevers(observers)
+
+        sample[strings.KEY_PROBES_4_INFERENCE] = observers
+        sample[strings.KEY_LANDMARKS_4_INFERENCE] = landmarks
+
+    return samples
+
+
+def merge_near_candidates(samples):
+    for sample in pyprind.prog_bar(samples):
+        candidates = sample[strings.KEY_CANDIDATES]
+        candidates = iterative_inference_machine.merge_near_candidates(candidates, settings.MAX_DIS_WITHIN_A_SINGLE_ORG)
+        sample[strings.KEY_MERGED_CANDIDATES] = candidates
 
         if len(candidates) == 1:
-            sample["status"] = enumeration.SAMPLE_STATUS_FIN
-            sample["coordinate"] = candidates[0]
+            sample[strings.KEY_STATUS] = enumeration.SAMPLE_STATUS_FIN
+            sample[strings.KEY_ESTIMATED_COORDINATE] = candidates[0]
         elif len(candidates) > 1:
-            sample["status"] = enumeration.SAMPLE_STATUS_WFVG
+            sample[strings.KEY_STATUS] = enumeration.SAMPLE_STATUS_WFVG
         else:
-            sample["status"] = enumeration.SAMPLE_STATUS_FAI
-
-        f_out.write("%s\n" % json.dumps(sample))
-        ind += 1
-
-    f_out.close()
+            sample[strings.KEY_STATUS] = enumeration.SAMPLE_STATUS_FAI
+    return samples
 
 
 def slice_sample_file_by_num_of_candidates(inp_file_path, out_directory, index_start):

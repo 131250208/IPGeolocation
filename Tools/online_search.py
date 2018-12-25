@@ -27,12 +27,24 @@ def quote(queryStr):
     return queryStr
 
 
+def bing_search(query):
+    query = quote(query)
+    url = 'https://www.bing.com/search?q=%s&ensearch=1&FORM=QBLHCN' % query
+    res = rt.try_best_request_get(url, 5)
+    # soup = BeautifulSoup(res.text, "lxml")
+    open("../Sources/temphtml.html", "w", encoding="utf-8").write(res.text)
+    # title = soup.select_one("h2. b_entityTitle").get_text()
+    # subtitle = soup.select_one("div.b_entitySubTitle").get_text()
+    # snippet = soup.select_one("div.b_snippet").get_text()
+    # print("{} {}\n{}".format(title, subtitle, snippet))
+
+
 #  url = 'https://www.bing.com/search?q=%s&setmkt=en-us&setlang=en-us' % queryStr
 def google_search(queryStr, proxy_type="None"):
     queryStr = quote(queryStr)
     url = 'https://www.google.com/search?biw=1920&safe=active&hl=en&q=%s&oq=%s' % (queryStr, queryStr)
 
-    response = rt.try_best_request_get(url, 5, "google_search", proxy_type=proxy_type)
+    response = rt.try_best_request_get(url, 99, "google_search", proxy_type=proxy_type)
     html = response.text
     return html
 
@@ -68,7 +80,7 @@ def extract_search_results(html):
 
 
 def google_kg_search(query_str):
-    api = "https://kgsearch.googleapis.com/v1/entities:search?query=%s&key=%s&limit=1&indent=True" % (quote(query_str), settings.GOOGLE_API_KEY)
+    api = "https://kgsearch.googleapis.com/v1/entities:search?query=%s&key=%s&limit=1&indent=True" % (quote(query_str), "AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk")
     res = rt.try_best_request_get(api, 5, "google_kg_search", "abroad")
     if res is None or res.status_code != 200:
         return ""
@@ -76,11 +88,5 @@ def google_kg_search(query_str):
 
 
 if __name__ == '__main__':
-
-    print(google_search("alibaba", "abroad"))
-    # open("../Sources/google_search.html", "w", encoding="utf-8").write(text)
+    print(google_kg_search("Beijing"))
     pass
-
-
-
-

@@ -1,6 +1,6 @@
 import math
 import re
-
+import numpy as np
 
 def find_lcsubstr(s1, s2):
     '''
@@ -111,8 +111,32 @@ def tokenize_v1(str):
     return list(set(token_list))
 
 
-if __name__ == "__main__":
+def edit_distance(word1, word2):
+    len1 = len(word1)
+    len2 = len(word2)
+    dp = np.zeros((len1 + 1, len2 + 1), dtype=int)
+    for i in range(len1 + 1):
+        dp[i][0] = i
+    for j in range(len2 + 1):
+        dp[0][j] = j
 
-    print(get_all_styles("TENcent AliBaba baidu"))
-    print(get_all_styles("u"))
+    for i in range(1, len1 + 1):
+        for j in range(1, len2 + 1):
+            delta = 0 if word1[i - 1] == word2[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j - 1] + delta, min(dp[i - 1][j] + 1, dp[i][j - 1] + 1))
+    return dp[len1][len2]
+
+
+if __name__ == "__main__":
+    import time
+
+    missed = "Xi'an"
+    city = "Xian"
+    sim = 0
+    t1 = time.time()
+    for i in range(20000):
+        sim = 1 - (edit_distance(missed, city) / len(missed))
+    t2 = time.time()
+
+    print(t2 - t1)
     pass

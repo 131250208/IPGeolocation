@@ -2,6 +2,8 @@ import re
 import json
 from Tools import purifier, other_tools, ner_tool
 from LandmarksCollector import owner_name_extractor
+import settings
+
 
 state_names_abbr = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
                  "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND",
@@ -38,18 +40,30 @@ def exist_zipcode(html):
     return False
 
 
-org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
+def exist_logo(html):
+    if re.search("logo", html, flags=re.I):
+        return True
+    return False
 
 
-def exist_owner_name(owner_info_str):
-    res = ner_tool.extract_org_name_fr_str(owner_info_str, org_name_dict)
+org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "r"))
+
+
+def exist_org_name(html):
+    res = owner_name_extractor.extract_org_names_fr_page(html, org_name_dict)
     if len(res) > 0:
         return True
     return False
 
 
+def exist_copyright(html):
+    if re.search(settings.PATTERN_COPYRIGHT, html, flags=re.I):
+        return True
+    return False
+
+
 if __name__ == "__main__":
-    in_file_path = "H:\\Projects/data_preprocessed/http_80_us_0.6.json"
+    in_file_path = "H:\\Projects/data_preprocessed/http_80_us_0.8.json"
     f_inp = open(in_file_path, "r", encoding="utf-8")
 
     ind = 0
@@ -57,6 +71,7 @@ if __name__ == "__main__":
     count_addr = 0
     count_zipcode = 0
     count_owner_info = 0
+    count_logo = 0
     for line in f_inp:
         if ind < index_start or line.strip() == "\n":
             print("-----------------ind: %d pass--------------------" % ind)
@@ -67,15 +82,13 @@ if __name__ == "__main__":
             sample = json.loads(line.strip("\n"))
         except Exception:
             continue
-        # if exist_addr_info(sample["html"]):
-        #     count_addr += 1
-        # if exist_zipcode(sample["html"]):
-        #     count_zipcode += 1
-        # print("------------addr: %d/%d-----zip: %d/%d-------" % (count_addr, ind + 1, count_zipcode, ind + 1))
-        owner_info_str = owner_name_extractor.extract_owner_info_str(sample["html"])
-        if exist_owner_name(owner_info_str):
+        html = sample["html"]
+        if exist_addr_info(sample["html"]):
+            count_addr += 1
+        if exist_zipcode(sample["html"]):
+            count_zipcode += 1
+        if exist_logo(html) or exist_copyright(html) or exist_org_name(html):
             count_owner_info += 1
-            # print("info_str: %s, \nowner_name: %s" % (owner_info_str, owner_name))
+        print("------------addr: %d/%d-----zip: %d/%d-------owner_info: %d/%d-------" % (count_addr, ind + 1, count_zipcode, ind + 1, count_owner_info, ind + 1))
 
-        print("------------owner_info: %d/%d---------------" % (count_owner_info, ind + 1))
         ind += 1

@@ -1,7 +1,7 @@
 from Tools import geo_distance_calculator, mylogger, web_mapping_services, ner_tool
 from LandmarksCollector import owner_name_extractor as one
 import enumeration
-import settings
+import settings, strings
 logger = mylogger.Logger("../Log/iterative_inference_machine.py.log")
 from itertools import combinations
 import numpy as np
@@ -44,36 +44,35 @@ def search_candidates(sample, radius):
     :param radius:
     :return: a page info object with candidates got from searching by owner names
     '''
-    ip = sample["ip"]
-    html = sample["html"]
-    coarse_grained_loc_list = sample["result_fr_commercial_tool"]
-    candidates_fr_pageinfo = []
-    candidates_fr_registration_db = []
 
-    query_fr_registration_db = one.get_org_name_by_registration_db(ip)
-    owner_name_list = one.get_owner_names_fr_page(html)
-    query_fr_page = " ".join(owner_name_list) if len(owner_name_list) > 0 else None
+    coarse_grained_loc_list = sample[strings.KEY_LOCS_FROM_COMMERCIAL_TOOLS]
+    candidates_fr_searching = []
 
-    coarse_grained_loc_list = geo_distance_calculator.merge_near_locations(coarse_grained_loc_list, 20000)
+    org_name_list = sample[strings.KEY_POTENTIAL_OWNER_NAMES]
 
+    org_name_list = [org_name for org_name in org_name_list if org_name is not None]
+    # filer out duplicates
+    org_name_list = sorted(org_name_list, key=lambda x: len(x), reverse=True)
+    org_name_list_new = []
+    mem = ""
+    for s in org_name_list:
+        if s.lower() not in mem.lower():
+            org_name_list_new.append(s)
+            mem += " %s" % s
+    org_name_list = org_name_list_new
+
+    # merge near coarse locs
+    coarse_grained_loc_list = geo_distance_calculator.merge_near_locations(coarse_grained_loc_list, settings.MIN_DIS_BTW_DIF_COARSE_LOCS)
     for loc in coarse_grained_loc_list:
         lng_com = loc["longitude"]
         lat_com = loc["latitude"]
-        if query_fr_page is not None:
-            candidates_fr_pageinfo += web_mapping_services.google_map_nearby_search(query_fr_page,
+        for org_name in org_name_list:
+            if org_name.strip() == "":
+                continue
+            candidates_fr_searching += web_mapping_services.google_map_nearby_search(org_name,
                                                                                     lng_com, lat_com, radius)
-        if query_fr_registration_db is not None:
-            candidates_fr_registration_db += web_mapping_services.google_map_nearby_search(query_fr_registration_db,
-                                                                                           lng_com, lat_com, radius)
 
-    sample["result_fr_page"] = {
-        "query": query_fr_page,
-        "candidates": candidates_fr_pageinfo
-    }
-    sample["result_fr_registration_db"] = {
-        "query": query_fr_registration_db,
-        "candidates": candidates_fr_registration_db,
-    }
+    sample[strings.KEY_CANDIDATES] = candidates_fr_searching
 
     return sample
 
@@ -216,6 +215,35 @@ def match_guard_to_candidates(sample, dict_landmarks, max_distance):
     return sample
 
 
+def get_indirect_route(tracert_list1, tracert_list2):
+    '''
+    :param tracert_list1: [{"ip": 6.6.6.6, "delay": 784.4}, ...]
+    :param tracert_list2:
+    :return:
+    '''
+    tracert_list1.reverse()
+    tracert_list2.reverse()
+
+    for ind1, h1 in enumerate(tracert_list1):
+        for ind2, h2 in enumerate(tracert_list2):
+            if h1["ip"] == "256.256.256.256" or h2["ip"] == "256.256.256.256":
+                continue
+            if h1["ip"] == h2["ip"]:
+                p1 = ind1
+                p2 = ind2
+
+                rt_piece1 = tracert_list1[:p1]
+                rt_piece2 = tracert_list2[:p2]
+                rt_piece2.reverse()
+
+                direct_rt_list = rt_piece1 + rt_piece2
+                delay_indirect = 0
+                for hop in direct_rt_list:
+                    if hop["ip"] == "256.256.256.256":
+                        continue
+                    delay_indirect += hop["delay"]
+                return delay_indirect
+
 # def generate_landmarks(sample_list):
 #     '''
 #     select an exact location for each IP and return a landmark
@@ -284,10 +312,12 @@ def match_guard_to_candidates(sample, dict_landmarks, max_distance):
 
 
 if __name__ == "__main__":
-    locations = [{"org_name": "1", 'longitude': -122.270001, 'latitude': 37.8055388}, {"org_name": "2", 'longitude': -87.858491, 'latitude': 37.8055388},
-                 {"org_name": "3", 'longitude': -122.270001, 'latitude': 37.8055388},
-                 {"org_name": "4", 'longitude': -87.858491, 'latitude': 41.87776059999999}, ]
-    print(merge_near_candidates(locations, 200000))
+    # locations = [{"org_name": "1", 'longitude': -122.270001, 'latitude': 37.8055388}, {"org_name": "2", 'longitude': -87.858491, 'latitude': 37.8055388},
+    #              {"org_name": "3", 'longitude': -122.270001, 'latitude': 37.8055388},
+    #              {"org_name": "4", 'longitude': -87.858491, 'latitude': 41.87776059999999}, ]
+    # print(merge_near_candidates(locations, 200000))
+
+    rt1 = [{"ip": "12."}]
     pass
 
 

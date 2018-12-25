@@ -21,7 +21,7 @@ KEYWORD_CLOUD_PROVIDER = ["amazon.com", "cloudflare.com", "cloud.google.com", "l
                 "pch.net",
                 ]
 
-COMPANY_ABBR = ["Inc.", "LLC", "L.L.C", "Ltd.", "Co."] # "logo", "footer", "header", "body", "foot", "head", "brand", "smaller", "bigger", "text",
+COMPANY_ABBR = ["Inc.", "LLC", "L.L.C", "Ltd.", "Co.", "company", "incorporated", "Corporation"] # "logo", "footer", "header", "body", "foot", "head", "brand", "smaller", "bigger", "text",
                                                                                             # "home", "login", "system", "official site", "welcome", "main",
 
 BlACK_LIST_LOGO = ["button", "btn", "login", "submit"]
@@ -84,12 +84,13 @@ PROXY_DATA5U_ABROAD_SPIDER_API = "http://api.ip.data5u.com/api/get.shtml?order=5
 # TIMEOUT = 20
 
 # geolocation
-GOOGLE_API_KEY = "AIzaSyCKKnJG27lYn8irlFU692Z4Yqxu9W7iEOk"
+GOOGLE_API_KEY = "AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk"
 # wang yu cheng
 # AIzaSyBuvFKna_9YqhszzmGNV1MIFjGNnfz8uyk - MyProject
 # AIzaSyAEo5rsZstUuAg5ybhXe8B8HbV60fKv-QM - IPGeolocation1
 # AIzaSyAyvxPWCX-s2CrEoww7_wonrKPWTrEktCc - IPGeolocation2
 # AIzaSyCKKnJG27lYn8irlFU692Z4Yqxu9W7iEOk - 4
+# AIzaSyAoB92oqYcChkEiyKEwvDflmvDcH3RzdrA - 5
 
 # wang xu
 # AIzaSyBBdxZIv7AmVLNT3-VoePq9o22fvyyEy5Y - 9
@@ -151,7 +152,8 @@ BAIDU_API_OCR_GENERAL = "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic"
 BAIDU_API_OCR_ACCURATE = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
 
 # ner tool
-STOP_WORDS = ["Web Design", "www", "xxx", "Terms & Conditions", "ICP", "CMS", "PHP", "Contact Us"]
+STOP_WORDS = ["Web Design", "www", "xxx", "Terms & Conditions", "ICP", "CMS", "PHP", "Contact Us", "jQuery", "edu",
+              "Inc.", "Inc", "Ltd", "LLC", "L.L.C", "Ltd.", "Co.", "company", "incorporated", "Corporation"]
 
 # frequent RegEx
 PATTERN_COPYRIGHT = "((c|C)opyright|&copy;|©|\(c\)|（c）)"
@@ -159,4 +161,9 @@ PATTERN_COPYRIGHT = "((c|C)opyright|&copy;|©|\(c\)|（c）)"
 # radius & distance
 RADIUS_FOR_SEARCHING_CANDIDATES = 50000
 MAX_DIS_WITHIN_A_SINGLE_ORG = 2000
+MIN_DIS_BTW_DIF_COARSE_LOCS = 20000
+
+# organization key word
+ORG_KEYWORDS = ["college", "company", "university", "school", "corporation",
+                "institute", "organization", "association"]
 

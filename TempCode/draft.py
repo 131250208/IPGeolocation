@@ -1,8 +1,9 @@
 from LandmarksCollector import owner_name_extractor as oi
 import json
-from LandmarksCollector import settings as st_lmc, iterative_inference_machine, data_preprocessor
+from LandmarksCollector import iterative_inference_machine, data_preprocessor
+import settings
 from itertools import combinations
-from Tools import geo_distance_calculator, network_measurer, settings as st_tool, requests_tools as rt, geoloc_commercial_db, web_mapping_services, other_tools, ner_tool
+from Tools import geo_distance_calculator, network_measurer, requests_tools as rt, geoloc_commercial_db, web_mapping_services, other_tools, ner_tool, online_search
 import random
 import pytz
 import datetime
@@ -12,20 +13,7 @@ from bs4 import BeautifulSoup
 import re
 import pyprind
 from multiprocessing import Pool
-
-def test_org_extracter():
-    landmarks = json.load(open("../Sources/landmarks_planetlab_0.3.json", "r"))
-    for lm in landmarks:
-        if lm["organization"] == "Palo Alto Research Center":  # Palo Alto Research Center(1.8W)
-            print(lm["geo_lnglat"]["pinpointed_area"])
-            it = oi.get_org_info_fr_pageinfo(lm["html"], lm["url"])
-            while True:
-                try:
-                    print(next(it))
-                except StopIteration:
-                    break
-            print(lm["url"])
-
+import math
 
 def test_copyright():
     pass
@@ -113,24 +101,147 @@ def get_loc_list(ip_dict_path, loc_list_path):
     json.dump(loc_list_total, open(loc_list_path, "w"))
 
 
-
-
-
+# ----------------
+import sys, getopt
 
 if __name__ == "__main__":
+    # update seed and prepare dict for building
+    from DictBuilder import dict_builder
 
-    dis = geo_distance_calculator.get_geodistance_btw_2coordinates(-125.75583, 25.80139, -125.75583, 25.85139)
-    print(dis)
+    # query_seed_dict = json.load(open("../Sources/org_names/query_seed_dict.json", "r", encoding="utf-8"))
 
-    # args = [("H:\\Projects/data_preprocessed/pages_us_with_candidates_0.%d.json" % (i + 1), 0) for i in range(9)]
-    # res_list = data_preprocessor.multiprocess(data_preprocessor.get_organization_name, args, 9)
+    entity_list = json.load(open("../Sources/org_names/entity_list.json", "r", encoding="utf-8"))
+
+    org_name_dict = dict_builder.entity_list_2_org_name_dict(entity_list)
+    count_done = 0
+    print(len(org_name_dict))
+
+    json.dump(org_name_dict, open("../Sources/org_names/org_name_dict_0.json", "w", encoding="utf-8"))
+
+    # from Doraemon.OnlineSearch import google_KG
+    # def get_proxies():
+    #     proxies = {
+    #     "http": "http://127.0.0.1:1080",
+    #     "https": "https://127.0.0.1:1080",
+    #     }
+    #     return proxies
+    # print(google_KG.get_entity("Amazon", get_proxies))
+
+    # argv = sys.argv[1:]
+    # print(argv)
+    # opts, args = getopt.getopt(argv, "p:", ["proxies"])
+    # for opt, arg in opts:
+    #     if opt == "-p":
+    #         print(arg)
+    # samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
+    # new_samples = []
+    # for sample in samples:
+    #     if sample["organization"] == "Oklahoma State University (Tulsa)":
+    #         continue
+    #     new_samples.append(sample)
+    # json.dump(new_samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
+    # print(len(new_samples))
+
+    # from Cities import cities_retriever
+    # cr = cities_retriever.CitiesRetriever("../Sources/dict_1.json")
+    # res = cr.retrieve_cities(98.51645342450165, 134.6121719570356, 21.087408226557084, 42.72426491686815, 10000)
+    # print(res)
+
+    # rt1 = network_measurer.traceroute("67.169.33.195")
+    # rt2 = network_measurer.traceroute("67.168.32.196")
+    # print(iterative_inference_machine.get_indirect_route(rt1, rt2))
+    # print(requests.get("https://www.bing.com").text)
+
+    '''
+    download probes on RIPE
+    '''
+    # ripe_account = settings.RIPE_ACCOUNT_KEY[0]
+    # ripe = network_measurer.RipeAtlas(ripe_account["account"], ripe_account["key"])
+    # ip_2_loc_ripe = ripe.get_all_probes_us()
+    # json.dump(ip_2_loc_ripe, open("../Sources/landmarks_ripe_us.json", "w", encoding="utf-8"))
+
+    '''
+    test our dict compared to NER stanford
+    '''
+    # org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_1.json", "r"))
+    # str = "sdfsdkfl VECTOR ;sk,dw[eo Licess [.v/x  d Ubuntu sfrrwr sdfdsgf rth Johns Hopkins University dafg Harvard University jsd Apache klfj DDM global wel Tofino Brewing Company ndsf Amazon sjdke eBay Google"
+    # # str = "Silverthorne Seismic, LLC Silverthorne Seismic, LLC Silverthrone SILVERTHRONE silverthrone Copyright © 2018 Silverthorne Seismic, LLC , "
     #
-    # org_name_dict_index = {}
-    # for res in res_list:
-    #     for org_name in res:
-    #         org_name_dict_index[org_name] = 0
+    # res = ner_tool.extract_org_name_fr_str(str, org_name_dict)
+    # print(res)
+    # res = ner_tool.ner_stanford(str)
+    # print(res)
+
+    # t1 = time.time()
+    # for i in range(1000):
+    #     res = ner_tool.extract_org_name_fr_str(str, org_name_dict)
+    # t2 = time.time()
+    # print("%f" % (t2 - t1))
     #
-    # json.dump(org_name_dict_index, open("../Sources/org_names/org_names_full_8.json", "w"))
+    # for i in range(1000):
+    #     res = ner_tool.ner_stanford(str)
+    # t3 = time.time()
+    # print("%f" % (t3 - t2))
+
+
+    # samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
+    # dataset_dict = {}
+    # for sample in samples:
+    #     dataset_dict[sample["ip"]] = sample
+    #
+    # json.dump(dataset_dict, open("../Sources/experiments/dataset_planetlab_us_dict.json", "w", encoding="utf-8"))
+
+    '''
+    extend the coverage by /24 cluster
+    '''
+    # landmark_dict = json.load(open("../Sources/landmarks/landmarks_fr_cyberspace_2.json", "r", encoding="utf-8"))
+    # landmark_dict_extended = {}
+    # for ip, loc in landmark_dict.items():
+    #     key = ".".join(ip.split(".")[:-1])
+    #     if key not in landmark_dict_extended:
+    #         landmark_dict_extended[key] = []
+    #     landmark_dict_extended[key].append(loc)
+    # json.dump(landmark_dict_extended, open("../Sources/landmarks/landmarks_extended_2.json", "w", encoding="utf-8"))
+    #
+    # for key, loc_list in landmark_dict_extended.items():
+    #     print("-------key: %s, len: %d-------" % (key, len(loc_list)))
+    #
+    # print(len(landmark_dict_extended))
+    # print(len(landmark_dict_extended) * 256)
+
+    '''
+    RegEx for extracting org name in copyright info
+    '''
+    # st_list = ["Silverthorne Seismic, LLC Silverthorne Seismic, LLC Silverthrone SILVERTHRONE silverthrone Copyright © 2018 Silverthorne Seismic, LLC , ",
+    #            "'Development - Login OS Os os © OutSystems. All rights reserved.'",
+    #            "© 1997-2013 Shirlene. All rights reserved worldwide.,",
+    #            "Copyright © 2018. APC Technology Group. All Rights Reserved., ",
+    #            "©1995-2004 Macromedia, Inc. All rights reserved.",
+    #             "©2004 Microsoft Corporation. All rights reserved.",
+    #             "Copyright © 2004 Adobe Systems Inc.",
+    #             "(c)1995-2004 Eric A. and Kathryn S. Meyer. All Rights Reserved.",
+    #            "More than just a vision board! Dream Big Collection Home Dream Big TM, Dream Big Vision Books © D.D. Watkins 2008 - Dream Big Workbooks & Content ",
+    #            "sdfsdf© D.D. Watkins 2011 - all rights reserved - Patent 2012-AP"]
+    # for st in st_list:
+    #     print(ner_tool.extract_org_name_fr_copyright(st))
+
+
+    # print(re.search("([0-9]{4}[\s\-]*([0-9]{4})*)", "2018").group(1))
+
+    # dis = geo_distance_calculator.get_geodistance_btw_2coordinates(-125.75583, 25.80139, -125.75583, 25.85139)
+    # print(dis)
+
+    # import enchant
+    # d = enchant.Dict("en_US")
+    # print(d.check("Hello"))
+
+    # l = ["Stacked", "Books", "Archives", "cars"]
+    #
+    # from nltk.stem.wordnet import WordNetLemmatizer
+    # lmtzr = WordNetLemmatizer()
+    # for w in l:
+    #     res = lmtzr.lemmatize(w.lower())
+    #     print(res)
 
     # sch_list = json.load(open("../Sources/schools_us_0.5.json", "r"))
     # uni_list = json.load(open("../Sources/universities_us_0.8.json", "r"))

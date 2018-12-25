@@ -66,7 +66,7 @@ def merge_near_locations(locations_list, max_distance):
     dis_clusters = dis_locations[:]
 
     while True:
-        print("-----cluster and merge near locations..., len_clusters: %d---------" % len(clusters_list))
+        # print("-----cluster and merge near locations..., len_clusters: %d---------" % len(clusters_list))
         pair_list = combinations(clusters_list, 2)
         dis_min = 9999999999
         pair_closest = None

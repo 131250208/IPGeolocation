@@ -1,10 +1,10 @@
 from urllib import parse
 import json
-from Tools import requests_tools as rt, geo_distance_calculator, mylogger
+from Tools import geo_distance_calculator, mylogger
 import logging
 import settings
 logger = mylogger.Logger("../Log/web_mapping_services.log", logging.INFO, logging.INFO)
-
+from Doraemon.Requests import requests_dora as rt
 
 def quote(queryStr):
     try:
@@ -13,6 +13,14 @@ def quote(queryStr):
         queryStr = parse.quote(queryStr.encode('utf-8', 'ignore'))
 
     return queryStr
+
+
+def get_proxies():
+    proxies = {
+        "http": "http//127.0.0.1:1080",
+        "https": "https://127.0.0.1:1080"
+    }
+    return proxies
 
 
 def google_map_place_search(queryStr):
@@ -27,7 +35,7 @@ def google_map_place_search(queryStr):
           "input=%s&inputtype=textquery" \
           "&fields=formatted_address,name,opening_hours,rating" \
           "&key=%s" % (quote(queryStr), settings.GOOGLE_API_KEY)
-    res_json = rt.try_best_request_get(url, 5, "google_map_places_search", "abroad")
+    res_json = rt.try_best_2_get(url, proxies=get_proxies(), timeout=10, invoked_by=google_map_place_search.__name__)
     return json.loads(res_json.text)
 
 
@@ -37,7 +45,7 @@ def google_map_place_search_bias(query_str, lng, lat, radius):
           "&fields=formatted_address,name,opening_hours,rating" \
           "&locationbias=circle:%d@%f,%f" \
           "&key=%s" % (quote(query_str), radius, lat, lng, settings.GOOGLE_API_KEY)
-    res_json = rt.try_best_request_get(url, 5, "google_map_places_search_bias", "abroad")
+    res_json = rt.try_best_2_get(url, proxies=get_proxies(), timeout=10, invoked_by=google_map_place_search_bias.__name__)
     return json.loads(res_json.text)
 
 
@@ -46,7 +54,7 @@ def google_map_nearby_search(query_str, lng, lat, radius):
 
     list_candidates = []
     while True:
-        res_json = rt.try_best_request_get(api, 9999, "google_map_nearby_search", "abroad")
+        res_json = rt.try_best_2_get(api, proxies=get_proxies(), timeout=10, invoked_by=google_map_nearby_search.__name__)
         if res_json.status_code != 200:
             break
         res_json = json.loads(res_json.text)
@@ -56,6 +64,7 @@ def google_map_nearby_search(query_str, lng, lat, radius):
 
         for candidate in res_json["results"]:
             list_candidates.append({
+                "query_str": query_str,
                 "org_name": candidate["name"],
                 "longitude": candidate["geometry"]["location"]["lng"],
                 "latitude": candidate["geometry"]["location"]["lat"],
@@ -69,10 +78,6 @@ def google_map_nearby_search(query_str, lng, lat, radius):
     return list_candidates
 
 
-def google_map_nearby_search_nextpage():
-    api = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=CpQCAgEAAFxg8o-eU7_uKn7Yqjana-HQIx1hr5BrT4zBaEko29ANsXtp9mrqN0yrKWhf-y2PUpHRLQb1GT-mtxNcXou8TwkXhi1Jbk-ReY7oulyuvKSQrw1lgJElggGlo0d6indiH1U-tDwquw4tU_UXoQ_sj8OBo8XBUuWjuuFShqmLMP-0W59Vr6CaXdLrF8M3wFR4dUUhSf5UC4QCLaOMVP92lyh0OdtF_m_9Dt7lz-Wniod9zDrHeDsz_by570K3jL1VuDKTl_U1cJ0mzz_zDHGfOUf7VU1kVIs1WnM9SGvnm8YZURLTtMLMWx8-doGUE56Af_VfKjGDYW361OOIj9GmkyCFtaoCmTMIr5kgyeUSnB-IEhDlzujVrV6O9Mt7N4DagR6RGhT3g1viYLS4kO5YindU6dm3GIof1Q&key=YOUR_API_KEY"
-
-
 def google_map_geocode_addr2coordinate(address):
     '''
     invoke google map API: geocoding
@@ -80,7 +85,7 @@ def google_map_geocode_addr2coordinate(address):
     :return:
     '''
     url = "https://maps.googleapis.com/maps/api/geocode/json?address=%s&key=%s" % (quote(address), settings.GOOGLE_API_KEY)
-    res_json = rt.try_best_request_get(url, 5, "google_map_geocode_addr2co", "abroad")
+    res_json = rt.try_best_2_get(url, proxies=get_proxies(), timeout=10, invoked_by=google_map_geocode_addr2coordinate.__name__)
     return json.loads(res_json.text)
 
 
@@ -89,7 +94,7 @@ def google_map_geocode_coordinate2addr(longitude, latitude):
     url = "https://maps.googleapis.com/maps/api/geocode/json?latlng=%s&key=%s" % (
     quote(latlng), settings.GOOGLE_API_KEY)
 
-    res = rt.try_best_request_get(url, 5, "google_map_geocode_co2addr", "abroad")
+    res = rt.try_best_2_get(url, proxies=get_proxies(), timeout=10, invoked_by=google_map_geocode_coordinate2addr.__name__)
     if res is None:
         return None
     res_json = json.loads(res.text)
@@ -169,6 +174,7 @@ if __name__ == "__main__":
     # api = google_map_static_map(list_prb)
     # print(api)
 
-    res = google_map_nearby_search("Amazon technology", -122.35689, 47.64288, 50000)
+    res = google_map_nearby_search("Amazon", -122.35689, 47.64288, 50000)
+    # res = google_map_get_coordinate("Dongguan Guangdong")
     print(res)
-    print(len(res))
+    # print(len(res))

@@ -12,11 +12,13 @@ from selenium.webdriver.common.by import By
 logger = mylogger.Logger("../Log/request_tools.py.log")
 import json
 
+
 class MyChrome(webdriver.Chrome):
+
     def __init__(self):
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--proxy-server=%s' % settings.PROXY_LOC_SHADOW)
-        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--headless")
         prefs = {'profile.managed_default_content_settings.images': 2}
         chrome_options.add_experimental_option('prefs', prefs)
         super(MyChrome, self).__init__(options=chrome_options)
@@ -60,10 +62,11 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
 ]
 headers = {
-    "accept": "*/*;q=0.8",
-    "accept-encoding": "gzip, deflate, br",
-    "Content-Type": "*/*",
-    "referer": "https://www.google.com/",
+    "host": "www.google.com",
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+    # "accept-encoding": "gzip, deflate, br",
+    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "referer": "www.google.com",
 }
 
 
@@ -81,14 +84,10 @@ def get_proxies_abroad():
     return proxies
 
 
-def get_proxies_spider_abroad():
-    # proxies_str = requests.get(settings.PROXY_DATA5U_ABROAD_SPIDER_API).text.strip()
-    # first_pro = proxies_str.split("\r\n")[0]
-    # first_pro = "217.29.62.222:24515"
-    # first_pro = "91.208.149.215:8000"
-    first_pro = "168.235.109.30:15105"
-    proxies = {"http": "http://%s" % first_pro,
-               "https": "https://%s" % first_pro, }
+def get_proxies_luminati():
+    proxy = "lum-customer-hl_95db9f83-zone-static:m6yzbkj85sou@zproxy.lum-superproxy.io:22225"
+    proxies = {"http": "http://%s" % proxy,
+               "https": "https://%s" % proxy, }
     return proxies
 
 
@@ -98,14 +97,15 @@ def get_proxies(type):
     elif type == "spider":
         return get_proxies_spider()
     elif type == "spider_abroad":
-        return get_proxies_spider_abroad()
+        return get_proxies_luminati()
     else:
         return None
 
 
 def get_random_headers():
     random.seed(time.time())
-    headers["user-agent"] = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0"
+    # headers["user-agent"] = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0"
+    headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
     return headers
 
 
@@ -164,6 +164,12 @@ def try_best_request_post(url, data, maxtime, tag="-", proxy_type="None"):
             if error_count > maxtime:
                 logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))
                 return None
+
+    if res is None or res.status_code != 200:
+        return None
+    if res.text is None or res.text.strip() == "":
+        return None
+
     return res
 
 
@@ -182,6 +188,11 @@ def try_best_request_get(url, maxtime, tag="-", proxy_type="None"):
             if error_count > maxtime:
                 logger.war("error_count exceeded: %d, tag: %s" % (maxtime, tag))
                 return None
+
+    if res is None or res.status_code != 200:
+        return None
+    if res.text is None or res.text.strip() == "":
+        return None
     return res
 
 
