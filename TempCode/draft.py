@@ -1,19 +1,10 @@
-from LandmarksCollector import owner_name_extractor as oi
 import json
-from LandmarksCollector import iterative_inference_machine, data_preprocessor
-import settings
-from itertools import combinations
-from Tools import geo_distance_calculator, network_measurer, requests_tools as rt, geoloc_commercial_db, web_mapping_services, other_tools, ner_tool, online_search
-import random
-import pytz
-import datetime
+from Tools import geo_distance_calculator, geoloc_commercial_db, web_mapping_services
 import time
 import requests
 from bs4 import BeautifulSoup
 import re
 import pyprind
-from multiprocessing import Pool
-import math
 
 def test_copyright():
     pass
@@ -106,21 +97,6 @@ import sys, getopt
 
 if __name__ == "__main__":
 
-    samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
-    for s in pyprind.prog_bar(samples):
-        ip = s["ip"]
-        est_ipip = geoloc_commercial_db.ip_geolocation_ipip(ip)
-        est_ipplus = geoloc_commercial_db.ip_geolocation_ipplus360(ip)
-        est_ipinfo = geoloc_commercial_db.ip_geolocation_ipinfo(ip)
-        est_geolite2 = geoloc_commercial_db.ip_geolocation_geolite2(ip)
-        est_ipstack = geoloc_commercial_db.ip_geolocation_ipstack(ip)
-
-        s["est_ipip"] = est_ipip
-        s["est_ipplus"] = est_ipip
-        s["est_ipinfo"] = est_ipip
-        s["est_geolite2"] = est_ipip
-        s["est_ipstack"] = est_ipip
-    json.dump(samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
     # count_single = 0
     # for sample in pyprind.prog_bar(samples):
     #     url = sample["url"]
