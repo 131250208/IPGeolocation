@@ -247,13 +247,21 @@ def filter_out_duplicates_n_invalid_samples(samples, *args):
 
 def extract_org_names(samples, *args):
     org_name_dict = args[0]
+    samples_new = []
     for sample in samples:
         # org_names = []
         # if strings.KEY_POTENTIAL_OWNER_NAMES in sample:
         #     org_names = sample[strings.KEY_POTENTIAL_OWNER_NAMES]
         # else:
+
+        # both org from page and from registration are needed
         org_names = owner_name_extractor.extract_org_names_fr_page(sample["html"], org_name_dict)
-        org_names.append(owner_name_extractor.get_org_name_by_registration_db(sample["ip"]))
+        if len(org_names) == 0:
+            continue
+        org_name_fr_reg = owner_name_extractor.get_org_name_by_registration_db(sample["ip"])
+        if org_name_fr_reg is None:
+            continue
+        org_names.append(org_name_fr_reg)
 
         # filer out duplicates
         org_names = sorted(org_names, key=lambda x: len(x), reverse=True)
@@ -263,51 +271,52 @@ def extract_org_names(samples, *args):
             if s.lower() not in mem.lower():
                 org_names_new.append(s)
                 mem += " %s" % s
-        org_names = org_names_new
 
-        sample[strings.KEY_POTENTIAL_OWNER_NAMES] = org_names
-        print("{:.1f} {} {}".format(sample["dis_coarse_2_ground"] / 1000, sample["organization"], sample[strings.KEY_POTENTIAL_OWNER_NAMES]))
+        sample[strings.KEY_POTENTIAL_OWNER_NAMES] = org_names_new
+        samples_new.append(sample)
+        print("org_names: {}".format(org_names_new))
+        # print("{:.1f} {} {}".format(sample["dis_coarse_2_ground"] / 1000, sample["organization"], sample[strings.KEY_POTENTIAL_OWNER_NAMES]))
 
-    return samples
+    return samples_new
 
 
-def find_pages_with_copyright(in_file_path, out_file_path, index):
-    '''
-    find samples with copyright on its page
-    :param in_file_path:
-    :param out_file_path:
-    :param index:
-    :return:
-    '''
-    f_inp = open(in_file_path, "r", encoding="utf-8")
-    f_out = open(out_file_path, "a", encoding="utf-8")
-
-    ind = 0
-    count = 0
-    for line in f_inp:
-        if ind < index or line.strip() == "\n":
-            print("-----------------ind: %d pass--------------------" % (ind))
-            ind += 1
-            continue
-        try:
-            sample = json.loads(line)
-        except Exception:
-            continue
-
-        html = sample["html"]
-        soup = purifier.get_pure_soup_fr_html(html)
-
-        org_fr_copyright = owner_name_extractor.extract_org_fr_copyright(soup)
-
-        if len(org_fr_copyright) > 0:
-            f_out.write("%s\n" % json.dumps(sample))
-            count += 1
-            logger.war("----------count: %d-------ind: %d identification: %s--------------------" % (count, ind, True))
-        else:
-            print("--------count: %d---------ind: %d identification: %s--------------------" % (count, ind, False))
-        ind += 1
-
-    f_out.close()
+# def find_pages_with_copyright(in_file_path, out_file_path, index):
+#     '''
+#     find samples with copyright on its page
+#     :param in_file_path:
+#     :param out_file_path:
+#     :param index:
+#     :return:
+#     '''
+#     f_inp = open(in_file_path, "r", encoding="utf-8")
+#     f_out = open(out_file_path, "a", encoding="utf-8")
+#
+#     ind = 0
+#     count = 0
+#     for line in f_inp:
+#         if ind < index or line.strip() == "\n":
+#             print("-----------------ind: %d pass--------------------" % (ind))
+#             ind += 1
+#             continue
+#         try:
+#             sample = json.loads(line)
+#         except Exception:
+#             continue
+#
+#         html = sample["html"]
+#         soup = purifier.get_pure_soup_fr_html(html)
+#
+#         org_fr_copyright = owner_name_extractor.extract_org_fr_copyright(soup)
+#
+#         if len(org_fr_copyright) > 0:
+#             f_out.write("%s\n" % json.dumps(sample))
+#             count += 1
+#             logger.war("----------count: %d-------ind: %d identification: %s--------------------" % (count, ind, True))
+#         else:
+#             print("--------count: %d---------ind: %d identification: %s--------------------" % (count, ind, False))
+#         ind += 1
+#
+#     f_out.close()
 
 
 def incorporate_coarse_locations_fr_commercial_dbs(samples, *args):

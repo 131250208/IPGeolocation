@@ -1,4 +1,4 @@
-from Tools import other_tools, web_mapping_services, ner_tool, geo_distance_calculator, mylogger
+from Tools import other_tools, web_mapping_services, ner_tool, geo_distance_calculator, mylogger, network_measurer
 import json
 from LandmarksCollector import data_preprocessor as dp_lmc, iterative_inference_machine as iim, owner_name_extractor as one
 from multiprocessing import Pool
@@ -169,7 +169,7 @@ def process_large_file(in_file_path, out_file_path, index_start, function, *extr
             out_size += len(samples_done)
             batch.clear()
             ind += 1000
-            print("----------pid: %s-------%d/%d-------------------" % (os.getpid(), out_size, ind))
+            logging.warning("----------pid: %s-------%d/%d-------------------" % (os.getpid(), out_size, ind))
 
     if len(batch) != 0:
         samples_done = function(batch, *extra_args_4_func)
@@ -178,7 +178,7 @@ def process_large_file(in_file_path, out_file_path, index_start, function, *extr
         batch.clear()
         out_size += len(samples_done)
         ind += len(batch)
-        print("---------pid: %s--------%d/%d-------------------" % (os.getpid(), out_size, ind))
+        logging.warning("---------pid: %s--------%d/%d-------------------" % (os.getpid(), out_size, ind))
 
 
 def slice_large_file(large_file_path, target_dir, chunk_size):
@@ -210,6 +210,7 @@ if __name__ == "__main__":
     generate locations for searching POI(points of interest)
     us: -125.75583, -66.01197, 25.80139, 49.05694
     '''
+
     #generate_locs_4_searching_poi(-125.75583, -66.01197, 25.80139, 49.05694, 0.05)
 
 
@@ -256,10 +257,10 @@ if __name__ == "__main__":
     '''
     extract org names
     '''
-    # org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
-    # process_large_file("H:\\Projects/data_preprocessed/http_80_us_1.0.json",
-    #                           "H:\\Projects/data_preprocessed/http_80_us_1.1.json",
-    #                    0, dp_lmc.filter_samples_with_org_names, org_name_dict) #
+    org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "r"))
+    process_large_file("H:\\Projects/data_preprocessed/http_80_us_0.8.json",
+                              "H:\\Projects/data_preprocessed/http_80_us_1.2.json",
+                       140000, dp_lmc.extract_org_names, org_name_dict) #
 
     # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
     # samples = dp_lmc.extract_org_names(samples, org_name_dict)

@@ -3,10 +3,10 @@ from bs4 import BeautifulSoup
 from bs4 import NavigableString
 import re
 from Tools import purifier
-import requests
 import settings
 from Tools.mylogger import Logger
-from Tools import ocr_tool, ner_tool, other_tools, requests_tools as rt
+from Tools import ocr_tool, ner_tool, other_tools
+from Doraemon.Requests import requests_dora, proxies_dora
 logger = Logger("../Log/owner_identification_us.log")
 
 
@@ -88,8 +88,6 @@ def extract_logo_info(soup, url=None):
 
         if "logo" in str_indi.lower():
             # link host with path of the img, pay attention to relative path and those already include scheme
-            if url is not None:
-                img_src = rt.recover_url(url, img_src)
             list_logo.append({"src": img_src, "alt": img_alt, "title": img_title})
 
     logo_info_list = []
@@ -328,8 +326,8 @@ get organization name from registration databases
 
 def get_org_name_by_ripe(ip):
     api = "https://rest.db.ripe.net/search.json?source=ripe&query-string=%s" % ip # &source=apnic-grs
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_ripe")
-    if res is None:
+    res = requests_dora.try_best_2_get(api, timeout=30, invoked_by="get_org_name_by_ripe", get_proxies_fun=settings.FUN_GET_PROXIES)
+    if res is None or res.status_code != 200:
         return None
 
     try:
@@ -349,7 +347,9 @@ def get_org_name_by_ripe(ip):
 
 def get_org_name_by_arin(ip):
     api = "https://whois.arin.net/rest/ip/%s.json" % ip
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_arin")
+    res = requests_dora.try_best_2_get(api, invoked_by="get_org_name_by_arin", timeout=30, get_proxies_fun=settings.FUN_GET_PROXIES)
+    if res is None or res.status_code != 200:
+        return None
 
     handle_json = json.loads(res.text)
     handle = handle_json["net"]["handle"]["$"]
@@ -357,8 +357,8 @@ def get_org_name_by_arin(ip):
     # handle = soup.select_one("handle").text
 
     api2 = "https://whois.arin.net/rest/net/%s/pft.json?s=%s" % (handle, ip)
-    res = rt.try_best_request_get(api2, 999, "get_org_name_by_arin")
-    if res is None:
+    res = requests_dora.try_best_2_get(api2, invoked_by="get_org_name_by_arin", timeout=30, get_proxies_fun=settings.FUN_GET_PROXIES)
+    if res is None or res.status_code != 200:
         return None
 
     name = None
@@ -376,8 +376,8 @@ def get_org_name_by_arin(ip):
 
 def get_org_name_by_lacnic(ip):
     api = "https://rdap.registro.br/ip/%s" % ip
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_lacnic")
-    if res is None:
+    res = requests_dora.try_best_2_get(api, timeout=30, invoked_by="get_org_name_by_lacnic", get_proxies_fun=settings.FUN_GET_PROXIES)
+    if res is None or res.status_code != 200:
         return None
 
     json_whois = json.loads(res.text)
@@ -392,8 +392,8 @@ def get_org_name_by_lacnic(ip):
 
 def get_org_name_by_apnic(ip):
     api = "http://wq.apnic.net/query?searchtext=%s" % ip
-    res = rt.try_best_request_get(api, 999, "get_org_name_by_apnic")
-    if res is None:
+    res = requests_dora.try_best_2_get(api, invoked_by="get_org_name_by_apnic", timeout=30, get_proxies_fun=settings.FUN_GET_PROXIES)
+    if res is None or res.status_code != 200:
         return None
 
     json_whois = json.loads(res.text)

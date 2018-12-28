@@ -19,10 +19,14 @@ BOT_NAME = 'crawler'
 
 SPIDER_MODULES = ['crawler.spiders']
 NEWSPIDER_MODULE = 'crawler.spiders'
+# BOT_NAME = 'ipgeo_rel_data_crawlers'
+#
+# SPIDER_MODULES = ['ipgeo_rel_data_crawlers.spiders']
+# NEWSPIDER_MODULE = 'ipgeo_rel_data_crawlers.spiders'
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
@@ -34,9 +38,11 @@ CONCURRENT_REQUESTS = 32
 # See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
 DOWNLOAD_DELAY = 3
+CRAWLERA_PRESERVE_DELAY = True
 # The download delay setting will honor only one of:
-CONCURRENT_REQUESTS_PER_DOMAIN = 16
+CONCURRENT_REQUESTS_PER_DOMAIN = 32
 CONCURRENT_REQUESTS_PER_IP = 16
+DOWNLOAD_TIMEOUT = 600
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -48,7 +54,8 @@ CONCURRENT_REQUESTS_PER_IP = 16
 DEFAULT_REQUEST_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en',
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20130406 Firefox/23.0",
+    'X-Crawlera-Cookies': 'disable',
 }
 
 # Enable or disable spider middlewares
@@ -60,9 +67,13 @@ DEFAULT_REQUEST_HEADERS = {
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
-   'crawler.middlewares.WikipediacrawlerSpiderMiddleware': 543,
+   # 'crawler.middlewares.WikipediacrawlerSpiderMiddleware': 543,
+    'scrapy_crawlera.CrawleraMiddleware': 600
 }
 
+CRAWLERA_ENABLED = True
+CRAWLERA_USER = '5a556de2aa334dfe8c918b93bbe08df4'
+CRAWLERA_PASS = ''
 # Enable or disable extensions
 # See http://scrapy.readthedocs.org/en/latest/topics/extensions.html
 #EXTENSIONS = {
@@ -86,7 +97,7 @@ DOWNLOADER_MIDDLEWARES = {
 # each remote server
 #AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
 # Enable showing throttling stats for every response received:
-#AUTOTHROTTLE_DEBUG = False
+AUTOTHROTTLE_DEBUG = False
 
 # Enable and configure HTTP caching (disabled by default)
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings

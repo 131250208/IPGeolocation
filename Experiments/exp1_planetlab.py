@@ -1,6 +1,6 @@
 import json
 import strings, enumeration
-from Tools import geo_distance_calculator
+from Tools import geo_distance_calculator, geoloc_commercial_db
 from LandmarksCollector import data_preprocessor as dp_lmc
 import settings
 import numpy as np
@@ -25,11 +25,24 @@ if __name__ == "__main__":
         if sample[strings.KEY_STATUS] == enumeration.SAMPLE_STATUS_FIN:
             # if sample["dis_coarse_2_ground"] > 50000:
             #     continue
-            error_dis = geo_distance_calculator.get_geodistance_btw_2coordinates(sample["longitude"], sample["latitude"], sample[strings.KEY_ESTIMATED_COORDINATE]["longitude"], sample[strings.KEY_ESTIMATED_COORDINATE]["latitude"])
+            med_one = geo_distance_calculator.get_geodistance_btw_2coordinates(sample["longitude"], sample["latitude"], sample[strings.KEY_ESTIMATED_COORDINATE]["longitude"], sample[strings.KEY_ESTIMATED_COORDINATE]["latitude"])
+
             sample_fin.append(sample)
             count += 1
-            error_list.append(error_dis)
+            error_list.append(med_one)
 
-            print("ip: {}, org: {} error_dis: {}".format(sample["ip"], sample["organization"], error_dis))
+            print("ip: {}, org: {} error_dis: {}".format(sample["ip"], sample["organization"], med_one))
     print(np.median(error_list))
     print(len(sample_fin))
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    samples = []
+    for ind, e in enumerate(error_list):
+        if e > 18000:
+            continue
+        samples.append(e)
+
+    arr = samples
+    plt.plot(np.sort(arr), np.linspace(0, 1, len(arr), endpoint=False), color="red")
+    plt.show()

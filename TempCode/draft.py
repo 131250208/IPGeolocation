@@ -105,51 +105,111 @@ def get_loc_list(ip_dict_path, loc_list_path):
 import sys, getopt
 
 if __name__ == "__main__":
-    # update seed and prepare dict for building
+
+    samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
+    for s in pyprind.prog_bar(samples):
+        ip = s["ip"]
+        est_ipip = geoloc_commercial_db.ip_geolocation_ipip(ip)
+        est_ipplus = geoloc_commercial_db.ip_geolocation_ipplus360(ip)
+        est_ipinfo = geoloc_commercial_db.ip_geolocation_ipinfo(ip)
+        est_geolite2 = geoloc_commercial_db.ip_geolocation_geolite2(ip)
+        est_ipstack = geoloc_commercial_db.ip_geolocation_ipstack(ip)
+
+        s["est_ipip"] = est_ipip
+        s["est_ipplus"] = est_ipip
+        s["est_ipinfo"] = est_ipip
+        s["est_geolite2"] = est_ipip
+        s["est_ipstack"] = est_ipip
+    json.dump(samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
+    # count_single = 0
+    # for sample in pyprind.prog_bar(samples):
+    #     url = sample["url"]
+    #     host = re.search("https?://(.*)/?", sample["url"]).group(1)
+    #     ips = network_measurer.get_all_ips(host)
+    #     if len(ips) == 1:
+    #         count_single += 1
+
+    '''
+    cities
+    '''
+    from itertools import islice
+    import csv
+    # query_seed_dict_cities = {}
+    #
+    # cities_file = open("../Sources/city.txt", "r", encoding="utf-8")
+    # for c in cities_file:
+    #     query_seed_dict_cities[c.strip()] = 0
+    # print(len(query_seed_dict_cities))
+
+    # with open("../Sources/worldcities.csv", 'r', encoding="utf-8") as csvfile, \
+    #     open("../Sources/city_lon_lat.json", "r", encoding="utf-8") as cities_json, \
+    #     open("../Sources/world_cities_new.csv", "w", encoding="utf-8") as csvout:
+    #     reader = csv.reader(csvfile)
+    #     writer = csv.writer(csvout)
+    #     cities = json.load(cities_json)
+    #     for row in reader:
+    #         if reader.line_num == 1:
+    #             writer.writerow(row)
+    #             continue
+    #         city_name = row[0]
+    #         country = row[5]
+    #         region = row[8]
+    #         latitude = float(row[3])
+    #         longitude = float(row[4])
+    #
+    #         for city in cities:
+    #             if city_name == city["cityName"] and country == city["country"] and region == city["province"]:
+    #                 row[3] = str(city["lat"])
+    #                 row[4] = str(city["lon"])
+    #
+    #         writer.writerow(row)
+    #         print("line: {}".format(reader.line_num))
+
+
+    #
+    # json.dump(query_seed_dict_cities, open("../Sources/query_seed_dict_google_cloud_city.json", "w", encoding="utf-8"))
+
+    '''
+    update seed and prepare dict for building
+    '''
     from DictBuilder import dict_builder
 
     # query_seed_dict = json.load(open("../Sources/org_names/query_seed_dict.json", "r", encoding="utf-8"))
 
-    entity_list = json.load(open("../Sources/org_names/entity_list.json", "r", encoding="utf-8"))
+    # entity_list = json.load(open("../Sources/org_names/entity_list.json", "r", encoding="utf-8"))
+    #
+    # org_name_dict = dict_builder.entity_list_2_org_name_dict(entity_list)
+    # count_done = 0
+    # print(len(org_name_dict))
+    #
+    # json.dump(org_name_dict, open("../Sources/org_names/org_name_dict_0.json", "w", encoding="utf-8"))
 
-    org_name_dict = dict_builder.entity_list_2_org_name_dict(entity_list)
-    count_done = 0
-    print(len(org_name_dict))
+    '''
+    translation
+    '''
+    # from Doraemon.OnlineSearch import google_translator
+    # from Doraemon.Requests import requests_dora
+    # query_dict = json.load(open("../Sources/org_names/org_name_dict_0.json", "r", encoding="utf-8"))
+    # query_list = [query for query in query_dict.keys()]
+    # query_str = ". ".join(query_list)
+    # trans_str = google_translator.trans_long(query_str, tl="zh-TW")
 
-    json.dump(org_name_dict, open("../Sources/org_names/org_name_dict_0.json", "w", encoding="utf-8"))
 
-    # from Doraemon.OnlineSearch import google_KG
-    # def get_proxies():
-    #     proxies = {
-    #     "http": "http://127.0.0.1:1080",
-    #     "https": "https://127.0.0.1:1080",
-    #     }
-    #     return proxies
-    # print(google_KG.get_entity("Amazon", get_proxies))
-
-    # argv = sys.argv[1:]
-    # print(argv)
-    # opts, args = getopt.getopt(argv, "p:", ["proxies"])
-    # for opt, arg in opts:
-    #     if opt == "-p":
-    #         print(arg)
-    # samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
-    # new_samples = []
-    # for sample in samples:
-    #     if sample["organization"] == "Oklahoma State University (Tulsa)":
-    #         continue
-    #     new_samples.append(sample)
-    # json.dump(new_samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
-    # print(len(new_samples))
 
     # from Cities import cities_retriever
     # cr = cities_retriever.CitiesRetriever("../Sources/dict_1.json")
     # res = cr.retrieve_cities(98.51645342450165, 134.6121719570356, 21.087408226557084, 42.72426491686815, 10000)
     # print(res)
 
+    '''
+    indirect delay
+    '''
     # rt1 = network_measurer.traceroute("67.169.33.195")
-    # rt2 = network_measurer.traceroute("67.168.32.196")
-    # print(iterative_inference_machine.get_indirect_route(rt1, rt2))
+    # # rt2 = network_measurer.traceroute("67.168.32.196")
+    # for i in range(254):
+    #     addr = i + 2
+    #     rt2 = network_measurer.traceroute("67.168.32.{}".format(addr))
+    #     print(iterative_inference_machine.get_indirect_route(rt1, rt2))
     # print(requests.get("https://www.bing.com").text)
 
     '''

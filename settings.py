@@ -167,3 +167,6 @@ MIN_DIS_BTW_DIF_COARSE_LOCS = 20000
 ORG_KEYWORDS = ["college", "company", "university", "school", "corporation",
                 "institute", "organization", "association"]
 
+# default get_proxies_fun
+from Doraemon.Requests import proxies_dora
+FUN_GET_PROXIES = None

@@ -223,7 +223,7 @@ def get_indirect_route(tracert_list1, tracert_list2):
     '''
     tracert_list1.reverse()
     tracert_list2.reverse()
-
+    common_router = None
     for ind1, h1 in enumerate(tracert_list1):
         for ind2, h2 in enumerate(tracert_list2):
             if h1["ip"] == "256.256.256.256" or h2["ip"] == "256.256.256.256":
@@ -231,6 +231,7 @@ def get_indirect_route(tracert_list1, tracert_list2):
             if h1["ip"] == h2["ip"]:
                 p1 = ind1
                 p2 = ind2
+                common_router = h1["ip"]
 
                 rt_piece1 = tracert_list1[:p1]
                 rt_piece2 = tracert_list2[:p2]
@@ -242,7 +243,7 @@ def get_indirect_route(tracert_list1, tracert_list2):
                     if hop["ip"] == "256.256.256.256":
                         continue
                     delay_indirect += hop["delay"]
-                return delay_indirect
+                return delay_indirect, common_router
 
 # def generate_landmarks(sample_list):
 #     '''

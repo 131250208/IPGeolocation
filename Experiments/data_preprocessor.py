@@ -181,7 +181,8 @@ def find_ip_2(samples_planetlab):
     for sample in pyprind.prog_bar(samples_planetlab):
         lon_ground = sample["longitude"]
         lat_ground = sample["latitude"]
-        ip_list = network_measurer.get_all_ips(sample["url"])
+        host = re.search("https?://(.*)/?", sample["url"]).group(1)
+        ip_list = network_measurer.get_all_ips(host)
         ip_list.append(sample["ip"])
 
         ip_closest = ""
@@ -230,10 +231,10 @@ def filer_valid_samples_us(samples_planetlab):
 
 if __name__ == "__main__":
     pass
-    # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
+    samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
     # for sample in samples:
     #     print("{} {}".format(sample["ip"], sample[strings.KEY_POTENTIAL_OWNER_NAMES]))
 
-    # samples = find_ip_2(samples)
-    # json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
+    samples = find_ip_2(samples)
+    json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
 
