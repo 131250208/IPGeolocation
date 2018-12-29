@@ -257,10 +257,10 @@ if __name__ == "__main__":
     '''
     extract org names
     '''
-    org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "r"))
-    process_large_file("H:\\Projects/data_preprocessed/http_80_us_0.8.json",
-                              "H:\\Projects/data_preprocessed/http_80_us_1.2.json",
-                       140000, dp_lmc.extract_org_names, org_name_dict) #
+    # org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "r"))
+    # process_large_file("H:\\Projects/data_preprocessed/http_80_us_0.8.json",
+    #                           "H:\\Projects/data_preprocessed/http_80_us_1.2.json",
+    #                    140000, dp_lmc.extract_org_names, org_name_dict) #
 
     # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
     # samples = dp_lmc.extract_org_names(samples, org_name_dict)
@@ -284,9 +284,9 @@ if __name__ == "__main__":
     '''
     search candidate geo coordinate by google map
     '''
-    # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
-    # samples = dp_lmc.incorporate_candidates_fr_web_mapping_services(samples, settings.RADIUS_FOR_SEARCHING_CANDIDATES)
-    # json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
+    samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
+    samples = dp_lmc.incorporate_candidates_fr_web_mapping_services(samples, settings.RADIUS_FOR_SEARCHING_CANDIDATES)
+    json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
 
     # args = [("H:\\Projects/data_preprocessed/http_80_us_1.1_slices_with_candidates/slice_%d.json" % i, i) for i in range(8)]
     # res = multiprocess(count, args, 8)
