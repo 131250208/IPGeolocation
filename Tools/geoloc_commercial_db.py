@@ -1,11 +1,13 @@
 import geoip2.database
 from geoip2.errors import AddressNotFoundError
 from Tools.IPLocate import IPplus360
-from Tools import requests_tools as rt, geo_distance_calculator
+from Tools import geo_distance_calculator
 import json
 import datx
 import requests
 import settings
+from Doraemon.Requests import requests_dora
+
 reader_geolite2 = geoip2.database.Reader('../Sources/GeoLite2-City.mmdb')
 reader_ipip = datx.City(settings.IP_INFO_IPIP_PATH)
 reader_ipplus = IPplus360()
@@ -29,7 +31,7 @@ def ip_geolocation_geolite2(ip):
 
 def ip_geolocation_ipstack(ip): # not free, 10000/month
     api = "http://api.ipstack.com/%s?access_key=%s" % (ip, "a9b953df82f98f0169d1bbefe67f42d9")
-    res = rt.try_best_request_get(api, 5, "ip_geolocation_ipstack")
+    res = requests_dora.try_best_2_get(api, timeout=10, invoked_by="ip_geolocation_ipstack")
     json_res = json.loads(res.text)
     return {
         "country": json_res["country_name"] if json_res["country_name"] is not None else "",
@@ -58,7 +60,7 @@ def ip_geolocation_ipinfo(ip): # not free, 1000/day
     }
     '''
     api = "http://ipinfo.io/%s/geo" % ip
-    res = requests.get(api, headers=rt.get_random_headers(), timeout=10)
+    res = requests_dora.try_best_2_get(api, headers=requests_dora.get_default_headers(), timeout=10)
     json_res = json.loads(res.text)
     if json_res["loc"] == "":
         json_res["longitude"] = None
