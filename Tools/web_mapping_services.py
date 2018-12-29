@@ -6,7 +6,6 @@ import settings
 logger = mylogger.Logger("../Log/web_mapping_services.log", logging.INFO, logging.INFO)
 from Doraemon.Requests import requests_dora as rt
 
-
 def quote(queryStr):
     try:
         queryStr = parse.quote(queryStr)
