@@ -106,21 +106,22 @@ import sys, getopt
 
 if __name__ == "__main__":
 
-    samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
-    for s in pyprind.prog_bar(samples):
-        ip = s["ip"]
-        est_ipip = geoloc_commercial_db.ip_geolocation_ipip(ip)
-        est_ipplus = geoloc_commercial_db.ip_geolocation_ipplus360(ip)
-        est_ipinfo = geoloc_commercial_db.ip_geolocation_ipinfo(ip)
-        est_geolite2 = geoloc_commercial_db.ip_geolocation_geolite2(ip)
-        est_ipstack = geoloc_commercial_db.ip_geolocation_ipstack(ip)
+    # samples = json.load(open("../Sources/experiments/samples_planetlab_us.json", "r", encoding="utf-8"))
+    # for s in pyprind.prog_bar(samples):
+    #     ip = s["ip"]
+    #     est_ipip = geoloc_commercial_db.ip_geolocation_ipip(ip)
+    #     est_ipplus = geoloc_commercial_db.ip_geolocation_ipplus360(ip)
+    #     est_ipinfo = geoloc_commercial_db.ip_geolocation_ipinfo(ip)
+    #     est_geolite2 = geoloc_commercial_db.ip_geolocation_geolite2(ip)
+    #     est_ipstack = geoloc_commercial_db.ip_geolocation_ipstack(ip)
+    #
+    #     s["est_ipip"] = est_ipip
+    #     s["est_ipplus"] = est_ipip
+    #     s["est_ipinfo"] = est_ipip
+    #     s["est_geolite2"] = est_ipip
+    #     s["est_ipstack"] = est_ipip
+    # json.dump(samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
 
-        s["est_ipip"] = est_ipip
-        s["est_ipplus"] = est_ipip
-        s["est_ipinfo"] = est_ipip
-        s["est_geolite2"] = est_ipip
-        s["est_ipstack"] = est_ipip
-    json.dump(samples, open("../Sources/experiments/samples_planetlab_us.json", "w", encoding="utf-8"))
     # count_single = 0
     # for sample in pyprind.prog_bar(samples):
     #     url = sample["url"]
