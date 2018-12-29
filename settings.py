@@ -155,6 +155,7 @@ BAIDU_API_OCR_ACCURATE = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basi
 STOP_WORDS = ["Web Design", "www", "xxx", "Terms & Conditions", "ICP", "CMS", "PHP", "Contact Us", "jQuery", "edu",
               "Inc.", "Inc", "Ltd", "LLC", "L.L.C", "Ltd.", "Co.", "company", "incorporated", "Corporation"]
 
+
 # frequent RegEx
 PATTERN_COPYRIGHT = "((c|C)opyright|&copy;|©|\(c\)|（c）)"
 
