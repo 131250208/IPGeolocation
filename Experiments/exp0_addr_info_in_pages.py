@@ -65,7 +65,6 @@ def exist_copyright(html):
 if __name__ == "__main__":
     in_file_path = "H:\\Projects/data_preprocessed/http_80_us_0.8.json"
     f_inp = open(in_file_path, "r", encoding="utf-8")
-
     ind = 0
     index_start = 0
     count_addr = 0
