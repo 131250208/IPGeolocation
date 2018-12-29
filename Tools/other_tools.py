@@ -107,7 +107,7 @@ def get_all_styles(str):
 
 
 def tokenize_v1(str):
-    token_list = [word for word in re.findall("[A-Za-z0-9]+", str) if len(word) > 1 and not re.match("\d+", word)]
+    token_list = [word for word in re.findall("[A-Za-z0-9\-]+", str) if len(word) > 1 and not re.match("\d+", word)]
     return list(set(token_list))
 
 
@@ -130,13 +130,5 @@ def edit_distance(word1, word2):
 if __name__ == "__main__":
     import time
 
-    missed = "Xi'an"
-    city = "Xian"
-    sim = 0
-    t1 = time.time()
-    for i in range(20000):
-        sim = 1 - (edit_distance(missed, city) / len(missed))
-    t2 = time.time()
-
-    print(t2 - t1)
+    print(tokenize_v1("M-Lab google sfkwe"))
     pass

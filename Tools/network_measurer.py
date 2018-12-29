@@ -592,7 +592,7 @@ def get_all_ips(host):
         ip_dict = p["ips"]
         for ip in ip_dict.keys():
             ip_set.add(ip)
-    return list(ip_set)
+    return ip_set
 
 
 def dns_parse(host, area="all"):

@@ -51,6 +51,7 @@ def search_candidates(sample, radius):
     org_name_list = sample[strings.KEY_POTENTIAL_OWNER_NAMES]
 
     org_name_list = [org_name for org_name in org_name_list if org_name is not None]
+
     # filer out duplicates
     org_name_list = sorted(org_name_list, key=lambda x: len(x), reverse=True)
     org_name_list_new = []
@@ -63,6 +64,8 @@ def search_candidates(sample, radius):
 
     # merge near coarse locs
     coarse_grained_loc_list = geo_distance_calculator.merge_near_locations(coarse_grained_loc_list, settings.MIN_DIS_BTW_DIF_COARSE_LOCS)
+
+    # draw a circle centered at coarse loc with a 50km radius
     for loc in coarse_grained_loc_list:
         lng_com = loc["longitude"]
         lat_com = loc["latitude"]

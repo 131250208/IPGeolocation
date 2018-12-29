@@ -1,10 +1,12 @@
 import json
-from Tools import geo_distance_calculator, geoloc_commercial_db, web_mapping_services
+from Tools import geo_distance_calculator, geoloc_commercial_db, web_mapping_services, network_measurer
 import time
 import requests
 from bs4 import BeautifulSoup
 import re
 import pyprind
+import strings
+
 
 def test_copyright():
     pass
@@ -96,13 +98,32 @@ def get_loc_list(ip_dict_path, loc_list_path):
 import sys, getopt
 
 if __name__ == "__main__":
+    # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
+    # print(len(samples))
+    # count_valid = 0
+    # for sample in samples:
+    #     if sample[strings.KEY_DIS_COARSE_LOC_2_GROUND] > 15000:
+    #         continue
+    #     count_valid += 1
+    #
+    # print(count_valid)
+
     # count_single = 0
     # for sample in pyprind.prog_bar(samples):
     #     url = sample["url"]
-    #     host = re.search("https?://(.*)/?", sample["url"]).group(1)
+    #     host = re.search("https?://(.*?)/?", sample["url"]).group(1)
     #     ips = network_measurer.get_all_ips(host)
     #     if len(ips) == 1:
     #         count_single += 1
+    #
+    # print(count_single)
+    import ijson
+
+    filename = "H:\\poi-data/asia.poi.json"
+    with open(filename, 'r', encoding="utf-8") as f:
+        objects = ijson.items(f, 'features.item')
+        item1 = dict(next(objects))
+        print(json.dumps(item1, indent=2))
 
     '''
     cities

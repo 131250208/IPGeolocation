@@ -37,7 +37,7 @@ def extract_footer_list(soup):
         if isinstance(d, NavigableString):
             continue
         attr_dict = d.attrs
-        val_list = []
+        val_list = [] # attributes of this tag
         for val in attr_dict.values():
             if isinstance(val, list):
                 val_list.extend(val)
@@ -46,6 +46,7 @@ def extract_footer_list(soup):
         for val in val_list:
             if "foot" in val:
                 foot_list.append(d.get_text())
+                break
     return foot_list
 
 
@@ -65,14 +66,15 @@ def extract_copyright_info_list(soup):
     return list_copyright_info
 
 
-def extract_logo_info(soup, url=None):
+def extract_logo_info_list(soup):
     # logo extracting
     list_image = soup.select("img")
     list_logo = []
     for img in list_image:
         str_tag = str(img).lower()
         for black_w in settings.BlACK_LIST_LOGO:
-            if black_w in str_tag: continue
+            if black_w in str_tag:
+                continue
 
         try:
             img_src = img["src"]
@@ -84,10 +86,9 @@ def extract_logo_info(soup, url=None):
         img_title = img["title"] if "title" in img.attrs else ""
         img_class = " ".join(img["class"]) if "class" in img.attrs else ""
 
-        str_indi = " ".join((img_name, img_alt, img_id, img_class, img_title))
+        str_indi = " ".join((img_name, img_alt, img_id, img_class, img_title)) # indicators
 
         if "logo" in str_indi.lower():
-            # link host with path of the img, pay attention to relative path and those already include scheme
             list_logo.append({"src": img_src, "alt": img_alt, "title": img_title})
 
     logo_info_list = []
@@ -100,23 +101,25 @@ def extract_logo_info(soup, url=None):
 
         logo_info_list.append("%s %s %s" % (logo["title"], logo["alt"], name_info))
 
-    # id or class == "logo"
+    # id or class == "logo", might not be an image tag
     logo_tag_list = soup.select(".logo")
     logo_tag_list.extend(soup.select("#logo"))
     for logo in logo_tag_list:
         text = logo.get_text()
-        if text != "":
-            logo_info_list.append(text)
         if "alt" in logo.attrs:
-            logo_info_list.append(logo["alt"])
+            text += " {}".format(logo["alt"])
         if "title" in logo.attrs:
-            logo_info_list.append(logo["title"])
+            text += " {}".format(logo["title"])
+        logo_info_list.append(text)
 
-    logo_info = " ".join(logo_info_list)
-    pattern = "|".join(other_tools.get_all_styles("logo"))
-    logo_info = re.sub(pattern, "", logo_info)
+    logo_info_list_clean = []
+    for logo_info in logo_info_list:
+        # filter out "logo"
+        pattern = "|".join(other_tools.get_all_styles("logo"))
+        logo_info = re.sub(pattern, "", logo_info)
+        logo_info_list_clean.append(logo_info)
 
-    return logo_info
+    return logo_info_list_clean
 
 
 # def extract_org_fr_logo(soup, url):
@@ -279,22 +282,65 @@ def extract_org_names_fr_page(html, org_name_dict):
     :param html:
     :return:
     '''
+    def extract_orgs(str_list):
+        org_name_info = " ".join(str_list)
+        org_name_info = re.sub("[\n\r\s\t]+", " ", org_name_info)
+        org_names = ner_tool.extract_org_name_fr_str(org_name_info, org_name_dict)
+        return org_names
+
+    # title
+    org_2_scr = {}
     soup = purifier.get_pure_soup_fr_html(html)
     title_list = get_title_list(soup)
-    logo_info = extract_logo_info(soup)
+    orgs_fr_title = extract_orgs(title_list)
+    for org in orgs_fr_title:
+        org_2_scr[org] = 5 if org not in org_2_scr else org_2_scr[org] + 0.01
+
+    # copyright
+    orgs_fr_cpr = []
     cpr_list = extract_copyright_info_list(soup)
-    foot_list = extract_footer_list(soup)
-
-    info_list = [logo_info] + title_list + foot_list
-    org_name_info = " ".join(info_list)
-    org_name_info = re.sub("[\n\r\s\t]+", " ", org_name_info)
-    org_names = ner_tool.extract_org_name_fr_str(org_name_info, org_name_dict)
-
     for cpr in cpr_list:
-        org_names_fr_cpr = ner_tool.extract_org_name_fr_str(cpr, org_name_dict, use_ner=True)
-        org_names.extend(org_names_fr_cpr)
+        org_names = ner_tool.extract_org_name_fr_str(cpr, org_name_dict)
+        orgs_fr_cpr.extend(org_names)
+    for org in orgs_fr_cpr:
+        org_2_scr[org] = 3 if org not in org_2_scr else org_2_scr[org] + 0.01
 
-    # filer out duplicates
+    # footers
+    foot_list = extract_footer_list(soup)
+    orgs_fr_ft = extract_orgs(foot_list)
+    for org in orgs_fr_ft:
+        org_2_scr[org] = 2 if org not in org_2_scr else org_2_scr[org] + 0.01
+
+    # logo
+    logo_info_list = extract_logo_info_list(soup)
+    logo_this_org_list = []
+    logo_list = []
+
+    # logo with "company" is more likely to be the logo of the owner
+    ORG_KEYWORDS = ["college", "company", "university", "school", "corporation",
+                    "institute", "organization", "association"]
+    pattern_this_org = "(%s)" % "|".join(ORG_KEYWORDS)
+    for lg_info in logo_info_list:
+        if re.search(pattern_this_org, lg_info, flags=re.I):
+            logo_this_org_list.append(lg_info)
+        else:
+            logo_list.append(lg_info)
+
+    orgs_fr_logo_this_org = extract_orgs(logo_this_org_list)
+    orgs_fr_logo = extract_orgs(logo_list)
+    for org in orgs_fr_logo:
+        org_2_scr[org] = 1 if org not in org_2_scr else org_2_scr[org] + 0.01
+    for org in orgs_fr_logo_this_org:
+        org_2_scr[org] = 4 if org not in org_2_scr else org_2_scr[org] + 0.01 # the score is higher than copyright
+
+    # there can be more than one max
+    max_score = max(org_2_scr.values())
+    org_names = []
+    for key in org_2_scr.keys():
+        if org_2_scr[key] == max_score:
+            org_names.append(key)
+
+    # filer out duplicates, if a short str is a substr of a long str, the shorter one will be dropped
     org_names = sorted(org_names, key=lambda x: len(x), reverse=True)
     org_names_new = []
     mem = ""
@@ -306,17 +352,6 @@ def extract_org_names_fr_page(html, org_name_dict):
 
     return org_names
 
-
-# org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
-
-
-# Copyright © 2015 - 2016 Shandong Shengwen Environmental Protection Technology Co., Ltd. All Rights Reserved.
-    # Copyright (c) 2007 NTTPC Communications, Inc. All rights reserved.
-    # © 2003-2011 中国民航科学技术研究院 版权所有 京ICP备05040221号
-    # '海安县畜牧兽医站©2012 版权所有 苏ICP备12072250号
-    # All Right Reserved. © 2015 Kyowa EXEO Corporation
-    # Yenlo Managed Services and 2.4.6 Copyright 2001-2015 by Zabbix SIA
-    # 智能网络监控系统Copyright © 2018 Shanghai Technology All rights Reserved.
 
 '''
 -------------------------------------------------------------------------------------------------------------

@@ -258,8 +258,6 @@ def extract_org_name_fr_str(target_str, org_name_dict, use_ner=False):
 
     winners = []
     for can in set(candidates):
-        if can == "University of Nebraska-Lincoln":
-            a = "b"
         if can in target_str:
             winners.append(can)
 

@@ -237,9 +237,9 @@ if __name__ == "__main__":
     '''
     build org name dict
     '''
-    # path_list = ["../Sources/org_names/org_name_dict_{}.json".format(0)]
+    # path_list = ["../Sources/org_names/org_name_dict_sch_n_univ.json", ]
     # org_name_dict_index = ner_tool.build_indexes_4_org_name_dict(path_list)
-    # json.dump(org_name_dict_index, open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "w"))
+    # json.dump(org_name_dict_index, open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "w"))
 
 # -----------------------------------------process samples--------------------------------------------------------------
     '''
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     '''
     extract org names
     '''
-    # org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_2.json", "r"))
+    # org_name_dict = json.load(open("../Sources/org_names/org_name_dict_index/org_name_dict_index_0.json", "r"))
     # process_large_file("H:\\Projects/data_preprocessed/http_80_us_0.8.json",
     #                           "H:\\Projects/data_preprocessed/http_80_us_1.2.json",
     #                    140000, dp_lmc.extract_org_names, org_name_dict) #
@@ -284,9 +284,9 @@ if __name__ == "__main__":
     '''
     search candidate geo coordinate by google map
     '''
-    samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
-    samples = dp_lmc.incorporate_candidates_fr_web_mapping_services(samples, settings.RADIUS_FOR_SEARCHING_CANDIDATES)
-    json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
+    # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
+    # samples = dp_lmc.incorporate_candidates_fr_web_mapping_services(samples, settings.RADIUS_FOR_SEARCHING_CANDIDATES)
+    # json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
 
     # args = [("H:\\Projects/data_preprocessed/http_80_us_1.1_slices_with_candidates/slice_%d.json" % i, i) for i in range(8)]
     # res = multiprocess(count, args, 8)
@@ -304,9 +304,9 @@ if __name__ == "__main__":
     '''
     merge near candidates
     '''
-    # samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
-    # samples = dp_lmc.merge_near_candidates(samples)
-    # json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
+    samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
+    samples = dp_lmc.merge_near_candidates(samples)
+    json.dump(samples, open("../Sources/experiments/samples_planetlab_us_0.1.json", "w", encoding="utf-8"))
 
     '''
     get initial landmarks
