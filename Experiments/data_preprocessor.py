@@ -196,7 +196,7 @@ def find_ip_2(samples_planetlab):
                     ip_closest = ip
 
         sample["ip"] = ip_closest
-        sample["dis_coarse_2_ground"] = dis_min
+        sample[strings.KEY_DIS_COARSE_LOC_2_GROUND] = dis_min
         print("ip: {}, dis: {}".format(ip_closest, dis_min))
     return samples_planetlab
 
