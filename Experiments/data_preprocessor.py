@@ -230,7 +230,6 @@ def filer_valid_samples_us(samples_planetlab):
 
 
 if __name__ == "__main__":
-    pass
     samples = json.load(open("../Sources/experiments/samples_planetlab_us_0.1.json", "r", encoding="utf-8"))
     # for sample in samples:
     #     print("{} {}".format(sample["ip"], sample[strings.KEY_POTENTIAL_OWNER_NAMES]))
